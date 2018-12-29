@@ -49,6 +49,8 @@ parser.add_argument('--momentum', type=float, default=0.9, metavar='U',
                     help='Momentum.')
 parser.add_argument('--layer', type=str, default="conv1-1", metavar='Y',
                     help='Name of the layer to deconvolve.')
+parser.add_argument('--verbose', type=int, default=0, metavar='V',
+                    help='Whether to print things or not: in [0, 1].')
 args = parser.parse_args()
 
 folder = "./data/figures/"
@@ -118,7 +120,7 @@ model = d_models[args.tmodel](pretrained=(args.trun=="testing" and args.trained)
 if (args.trun != "deconv"):
 	model.compile(loss='categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
 
-## "Deconvoluted" version of NN model
+## "Deconvoluted" version of NN models
 #deconv_model = d_dmodels[args.tmodel](pretrained=(args.trun=="deconv" and args.trained), layer=args.layer if (args.trun=="deconv") else None)
 #deconv_model.compile(loss='categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
 
@@ -171,10 +173,8 @@ if (args.trun == "testing"):
 	datagen_test.fit(X_test)
 	scores = model.evaluate_generator(datagen_test.flow(X_test, Y_test, batch_size=args.batch),
 		steps=np.shape(X_test)[0]//args.batch,verbose=2)
-	print(model.summary())
-	layers = [layer.name for layer in model.layers]
-	print(layers)
-	print(model.summary()[layers[0]])
+	if (args.verbose):
+		print(model.summary())
 	print('Test loss: %.2f' % scores[0])
 	print('Test accuracy: %.2f' % scores[1])
 if (args.trun == "deconv"):
@@ -184,4 +184,7 @@ if (args.trun == "deconv"):
 	out = deconv_model.predict(out)
 	plt.figure(figsize=(20, 20))
 	plt.imshow(out)
+	## Save output feature map
+	#If you want to reconstruct from a single feature map / activation, you can
+	# simply set all the others to 0. (in file "models/deconv_models.py")
 	plt.savefig(folder + "fmap_" + str(i) + ".png", bbox_inches="tight")

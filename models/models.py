@@ -6,7 +6,7 @@ sys.path += ['../layers/']
 
 import numpy as np
 from keras.models import Model
-from keras.layers.core import Flatten, Dense, Dropout
+from keras.layers.core import Flatten, Dense, Dropout, Lambda
 from keras.constraints import maxnorm
 from keras.layers.normalization import BatchNormalization
 from keras.layers import Activation, Input
@@ -26,12 +26,10 @@ def VGG_16(pretrained=True, weights_path=None, noutputs=num_classes, deconv=Fals
 	inp = Input(shape = (sz, sz, 3))
 
 	try:
-		out = Lambda(lambda image: ktf.image.resize_images(image, (224, 224)))(inp)
+		x = Lambda(lambda image: ktf.image.resize_images(image, (224, 224)))(inp)
 	except :
 		# if you have older version of tensorflow
-		out = Lambda(lambda image: ktf.image.resize_images(image, 224, 224))(inp)
-
-	x = inp
+		x = Lambda(lambda image: ktf.image.resize_images(image, 224, 224))(inp)
 
 	x = ZeroPadding2D((1, 1))(x)
 	x = Conv2D(64, (3, 3), activation='relu', name="conv1-1")(x)

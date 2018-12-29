@@ -6,7 +6,7 @@ sys.path += ['../layers/']
 
 import numpy as np
 from keras.models import Model
-from keras.layers.core import Flatten, Dense, Dropout
+from keras.layers.core import Flatten, Dense, Dropout, Lambda
 from keras.constraints import maxnorm
 from keras.layers.normalization import BatchNormalization
 from keras.layers import Activation, Input
@@ -14,7 +14,7 @@ from keras.layers.convolutional import Conv2D, ZeroPadding2D
 from pool_unpool import MaxPooling2D
 import torch
 
-sz = 224
+sz = 32
 num_classes = 1000
 
 #If you want to reconstruct from a single feature map / activation, you can
@@ -29,6 +29,13 @@ def VGG_16(pretrained=True, weights_path=None, noutputs=num_classes):
 		weights_path = './data/weights/vgg16_weights.h5'
 
 	inp = Input(shape = (sz, sz, 3))
+
+	try:
+		inp = Lambda(lambda image: ktf.image.resize_images(image, (224, 224)))(inp)
+	except :
+		# if you have older version of tensorflow
+		inp = Lambda(lambda image: ktf.image.resize_images(image, 224, 224))(inp)
+
 	x = inp
 
 	x = ZeroPadding2D((1, 1))(x)

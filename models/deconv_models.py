@@ -10,9 +10,12 @@ from keras.layers.core import Flatten, Dense, Dropout, Lambda
 from keras.constraints import maxnorm
 from keras.layers.normalization import BatchNormalization
 from keras.layers import Activation, Input
-from keras.layers.convolutional import Conv2D, ZeroPadding2D
-from pool_unpool import MaxPooling2D
+from keras.layers.convolutional import ZeroPadding2D
+from pool_unpool import UndoMaxPooling2D
+from deconv2D import Deconv2D
 import torch
+
+## TODO Models are not yet checked and tested! (check the filter sizes for deconv filters)
 
 sz = 32
 num_classes = 1000
@@ -28,15 +31,34 @@ def VGG_16(pretrained=True, weights_path=None, noutputs=num_classes):
 	if (pretrained):
 		weights_path = './data/weights/vgg16_weights.h5'
 
-	inp = Input(shape = (sz, sz, 3))
-
-	try:
-		inp = Lambda(lambda image: ktf.image.resize_images(image, (224, 224)))(inp)
-	except :
-		# if you have older version of tensorflow
-		inp = Lambda(lambda image: ktf.image.resize_images(image, 224, 224))(inp)
-
+	inp = Input(batch_shape = (1, sz // 4, sz // 4, 128*2*2))
 	x = inp
+
+	##TODO
+	pos2 = Input(batch_shape = (1, sz // 4, sz // 4, 32))
+	x = UndoMaxPooling2D((1, sz, sz, 32), name="pool2")([x, pos2])
+
+	x = ZeroPadding2D((1, 1))(x)
+	x = Conv2D(512, (3, 3), activation='relu', name="conv5-1")(x)
+	x = ZeroPadding2D((1, 1))(x)
+	x = Conv2D(512, (3, 3), activation='relu', name="conv5-2")(x)
+	x = ZeroPadding2D((1, 1))(x)
+	x = Conv2D(512, (3, 3), activation='relu', name="conv5-3")(x)
+	x, pos5 = MaxPooling2D(pool_size=2, strides=2, name="pool5")(x)
+
+	pos2 = Input(batch_shape = (1, sz // 4, sz // 4, 32))
+	x = UndoMaxPooling2D((1, sz, sz, 32), name="pool2")([x, pos2])
+	x = Deconv2D(64//2,3,padding='SAME',activation='relu', name="conv2-2")(x)
+	x = Deconv2D(64//2,3,padding='SAME',activation='relu', name="conv2-1")(x)
+
+	pos1 = Input(batch_shape = (1, sz // 2, sz // 2, 16))
+	x = UndoMaxPooling2D((1, sz, sz, 16), name="pool1")([x, pos1])
+	x = Deconv2D(32//2, 3, padding='SAME', activation="relu", name="conv1-2")(x)
+	x = Deconv2D(32//2, 3, padding='SAME', activation="relu", name="conv1-1")(x)
+
+	model = Model(inputs = [inp, pos1, pos2, pos3, pos4, pos5], outputs = x)
+
+
 
 	x = ZeroPadding2D((1, 1))(x)
 	x = Conv2D(64, (3, 3), activation='relu', name="conv1-1")(x)
@@ -66,22 +88,9 @@ def VGG_16(pretrained=True, weights_path=None, noutputs=num_classes):
 	x = Conv2D(256, (3, 3), activation='relu', name="conv4-3")(x)
 	x, pos4 = MaxPooling2D(pool_size=2, strides=2, name="pool4")(x)
 
-	x = ZeroPadding2D((1, 1))(x)
-	x = Conv2D(512, (3, 3), activation='relu', name="conv5-1")(x)
-	x = ZeroPadding2D((1, 1))(x)
-	x = Conv2D(512, (3, 3), activation='relu', name="conv5-2")(x)
-	x = ZeroPadding2D((1, 1))(x)
-	x = Conv2D(512, (3, 3), activation='relu', name="conv5-3")(x)
-	x, pos5 = MaxPooling2D(pool_size=2, strides=2, name="pool5")(x)
 
-	x = Flatten()(x)
-	x = Dense(4096, activation='relu', name="dense1")(x)
-	x = Dropout(0.5)(x)
-	x = Dense(4096, activation='relu', name="dense2")(x)
-	x = Dropout(0.5)(x)
-	x = Dense(noutputs, activation='softmax', name="dense3")(x)
 
-	model = Model(inputs = inp, outputs = [x, pos1, pos2, pos3, pos4, pos5])
+
 
 	if weights_path:
 		model.load_weights(weights_path, by_name = True)
@@ -93,25 +102,20 @@ def Conv2(pretrained=True, weights_path=None, noutputs=num_classes):
 	if (pretrained):
 		weights_path = './data/weights/conv2_weights.h5'
 
-	inp = Input(shape = (sz, sz, 3))
+	inp = Input(batch_shape = (1, sz // 4, sz // 4, 64))
 	x = inp
 
-	x = Conv2D(32, (3, 3), padding='same', activation="relu", name="conv1-1")(x)
-	x = Conv2D(32, (3, 3), padding='same', activation="relu", name="conv1-2")(x)
-	x, pos1 = MaxPooling2D(pool_size=2, strides=2, name="pool1")(x)
-	x = Dropout(0.25)(x)
+	pos2 = Input(batch_shape = (1, sz // 4, sz // 4, 32))
+	x = UndoMaxPooling2D((1, sz, sz, 32), name="pool2")([x, pos2])
+	x = Deconv2D(64//2,3,padding='SAME',activation='relu', name="conv2-2")(x)
+	x = Deconv2D(64//2,3,padding='SAME',activation='relu', name="conv2-1")(x)
 
-	x = Conv2D(64, (3, 3), padding='same', activation="relu", name="conv2-1")(x)
-	x = Conv2D(64, (3, 3), padding='same', activation="relu", name="conv2-2")(x)
-	x, pos2 = MaxPooling2D(pool_size=2, strides=2, name="pool2")(x)
-	x = Dropout(0.25)(x)
+	pos1 = Input(batch_shape = (1, sz // 2, sz // 2, 16))
+	x = UndoMaxPooling2D((1, sz, sz, 16), name="pool1")([x, pos1])
+	x = Deconv2D(32//2, 3, padding='SAME', activation="relu", name="conv1-2")(x)
+	x = Deconv2D(32//2, 3, padding='SAME', activation="relu", name="conv1-1")(x)
 
-	x = Flatten()(x)
-	x = Dense(512, name="dense1", activation="relu")(x)
-	x = Dropout(0.5)(x)
-	x = Dense(noutputs, activation="softmax", name="dense2")(x)
-
-	model = Model(inputs = inp, outputs = [x, pos1, pos2])
+	model = Model(inputs = [inp, pos1, pos2], outputs = x)
 
 	if weights_path:
 		model.load_weights(weights_path, by_name=True)
@@ -123,34 +127,25 @@ def Conv(pretrained=True, weights_path=None, noutputs=num_classes):
 	if (pretrained):
 		weights_path = './data/weights/conv_weights.h5'
 
-	inp = Input(shape = (sz, sz, 3))
+	inp = Input(batch_shape = (1, sz // 4, sz // 4, 128))
 	x = inp
 
-	x = Conv2D(32, (3, 3), padding='same', activation='relu', name="conv1")(x)
-	x = Dropout(0.2)(x)
+	pos3 = Input(batch_shape = (1, sz // 4, sz // 4, 64))
+	x = UndoMaxPooling2D((1, sz, sz, 64), name="pool6")([x, pos3])
+	x = Deconv2D(128//2,3,padding='SAME',activation='relu', name="conv6")(x)
+	x = Deconv2D(128//2,3,padding='SAME',activation='relu', name="conv5")(x)
 
-	x = Conv2D(32, (3, 3), padding='same', activation="relu", name="conv2")(x)
-	x, pos1 = MaxPooling2D(pool_size=2, strides=2, name="pool2")(x)
+	pos2 = Input(batch_shape = (1, sz // 2, sz // 2, 32))
+	x = UndoMaxPooling2D((1, sz, sz, 32), name="pool4")([x, pos2])
+	x = Deconv2D(64//2, 3, padding='SAME', activation="relu", name="conv4")(x)
+	x = Deconv2D(64//2, 3, padding='SAME', activation="relu", name="conv3")(x)
 
-	x = Conv2D(64, (3, 3), padding='same', activation="relu", name="conv3")(x)
-	x = Dropout(0.2)(x)
+	pos1 = Input(batch_shape = (1, sz // 2, sz // 2, 16))
+	x, pos1 = UndoMaxPooling2D((1, sz, sz, 16), name="pool2")([x, pos1])
+	x = Deconv2D(32//2, 3, padding='SAME', activation="relu", name="conv2")(x)
+	x = Deconv2D(32//2, 3, padding='SAME', activation='relu', name="conv1")(x)
 
-	x = Conv2D(64, (3, 3), padding='same', activation="relu", name="conv4")(x)
-	x, pos2 = MaxPooling2D(pool_size=2, strides=2, name="pool4")(x)
-
-	x = Conv2D(128,(3,3),padding='same',activation='relu', name="conv5")(x)
-	x = Dropout(0.2)(x)
-
-	x = Conv2D(128,(3,3),padding='same',activation='relu', name="conv6")(x)
-	x, pos3 = MaxPooling2D(pool_size=2, strides=2, name="pool6")(x)
-
-	x = Flatten()(x)
-	x = Dropout(0.2)(x)
-	x = Dense(1024,activation='relu',kernel_constraint=maxnorm(3), name="dense1")(x)
-	x = Dropout(0.2)(x)
-	x = Dense(noutputs, activation='softmax', name="dense2")(x)
-
-	model = Model(inputs = inp, outputs = [x, pos1, pos2, pos3])
+	model = Model(inputs = [inp, pos1, pos2, pos3], outputs = x)
 
 	if weights_path:
 		model.load_weights(weights_path, by_name=True)

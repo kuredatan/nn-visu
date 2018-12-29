@@ -23,13 +23,9 @@ def forward_model():
 
 	conv1 = Conv2D(16, 3, padding = 'SAME', activation = 'relu', name = 'block1_conv1')(x)
 	mp1, pos1 = MaxPooling2D(name = 'block1_pool')(conv1)
-	x = Flatten()(conv1)
-	conv1 = Dense(1000, activation='softmax')(x)
 
 	conv2 = Conv2D(32, 3, padding = 'SAME', activation = 'relu', name = 'block2_conv1')(mp1)
 	mp2, pos2 = MaxPooling2D(name = 'block2_pool')(conv2)
-	x = Flatten()(conv2)
-	conv2 = Dense(1000, activation='softmax')(x)
 
 	conv3 = Conv2D(64, 3, padding = 'SAME', activation = 'relu', name = 'block3_conv1')(mp2)
 

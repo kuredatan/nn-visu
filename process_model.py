@@ -13,12 +13,15 @@ from keras.utils import to_categorical
 from random import sample
 from copy import deepcopy
 from print_norm_utils import print_images, plot_kernels, normalize_input
+from KerasDeconv import DeconvNet
+import cPickle as pickle
 import models
 import deconv_models
 import argparse
 import glob
 import cv2
 import os
+from utils import get_deconv_images, plot_deconv, plot_max_activation, find_top9_mean_act
 
 ## CREDIT: Adapted from practicals/HMW2 from Andrea Vedaldi and Andrew Zisserman 
 ## by Gul Varol and Ignacio Rocco in PyTorch
@@ -123,6 +126,7 @@ if (args.trun != "deconv"):
 ## "Deconvoluted" version of NN models
 #deconv_model = d_dmodels[args.tmodel](pretrained=(args.trun=="deconv" and args.trained), layer=args.layer if (args.trun=="deconv") else None)
 #deconv_model.compile(loss='categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
+deconv_model = DeconvNet(model)
 
 ## Print kernels in a given layer (for instance "conv1-1")
 #layers = [layer.name for layer in model.layers]

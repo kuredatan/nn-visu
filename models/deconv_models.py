@@ -34,63 +34,35 @@ def VGG_16(pretrained=True, weights_path=None, noutputs=num_classes):
 	inp = Input(batch_shape = (1, sz // 4, sz // 4, 128*2*2))
 	x = inp
 
-	##TODO
+	pos5 = Input(batch_shape = (1, sz // 4, sz // 4, 128*2))
+	x = UndoMaxPooling2D((1, sz, sz, 128*2), name="pool5")([x, pos5])
+	x = Deconv2D(512//2,3,padding='SAME',activation='relu', name="conv5-3")(x)
+	x = Deconv2D(512//2,3,padding='SAME',activation='relu', name="conv5-2")(x)
+	x = Deconv2D(512//2,3,padding='SAME',activation='relu', name="conv5-1")(x)
+
+	pos4 = Input(batch_shape = (1, sz // 4, sz // 4, 128))
+	x = UndoMaxPooling2D((1, sz, sz, 128), name="pool4")([x, pos4])
+	x = Deconv2D(256//2,3,padding='SAME',activation='relu', name="conv4-3")(x)
+	x = Deconv2D(256//2,3,padding='SAME',activation='relu', name="conv4-2")(x)
+	x = Deconv2D(256//2,3,padding='SAME',activation='relu', name="conv4-1")(x)
+
+	pos3 = Input(batch_shape = (1, sz // 4, sz // 4, 64))
+	x = UndoMaxPooling2D((1, sz, sz, 64), name="pool3")([x, pos3])
+	x = Deconv2D(256//2,3,padding='SAME',activation='relu', name="conv3-3")(x)
+	x = Deconv2D(256//2,3,padding='SAME',activation='relu', name="conv3-2")(x)
+	x = Deconv2D(256//2,3,padding='SAME',activation='relu', name="conv3-1")(x)
+
 	pos2 = Input(batch_shape = (1, sz // 4, sz // 4, 32))
 	x = UndoMaxPooling2D((1, sz, sz, 32), name="pool2")([x, pos2])
+	x = Deconv2D(128//2,3,padding='SAME',activation='relu', name="conv2-2")(x)
+	x = Deconv2D(128//2,3,padding='SAME',activation='relu', name="conv2-1")(x)
 
-	x = ZeroPadding2D((1, 1))(x)
-	x = Conv2D(512, (3, 3), activation='relu', name="conv5-1")(x)
-	x = ZeroPadding2D((1, 1))(x)
-	x = Conv2D(512, (3, 3), activation='relu', name="conv5-2")(x)
-	x = ZeroPadding2D((1, 1))(x)
-	x = Conv2D(512, (3, 3), activation='relu', name="conv5-3")(x)
-	x, pos5 = MaxPooling2D(pool_size=2, strides=2, name="pool5")(x)
-
-	pos2 = Input(batch_shape = (1, sz // 4, sz // 4, 32))
-	x = UndoMaxPooling2D((1, sz, sz, 32), name="pool2")([x, pos2])
-	x = Deconv2D(64//2,3,padding='SAME',activation='relu', name="conv2-2")(x)
-	x = Deconv2D(64//2,3,padding='SAME',activation='relu', name="conv2-1")(x)
-
-	pos1 = Input(batch_shape = (1, sz // 2, sz // 2, 16))
+	pos1 = Input(batch_shape = (1, sz // 4, sz // 4, 16))
 	x = UndoMaxPooling2D((1, sz, sz, 16), name="pool1")([x, pos1])
-	x = Deconv2D(32//2, 3, padding='SAME', activation="relu", name="conv1-2")(x)
-	x = Deconv2D(32//2, 3, padding='SAME', activation="relu", name="conv1-1")(x)
+	x = Deconv2D(64//2,3,padding='SAME',activation='relu', name="conv1-2")(x)
+	x = Deconv2D(64//2,3,padding='SAME',activation='relu', name="conv1-1")(x)
 
 	model = Model(inputs = [inp, pos1, pos2, pos3, pos4, pos5], outputs = x)
-
-
-
-	x = ZeroPadding2D((1, 1))(x)
-	x = Conv2D(64, (3, 3), activation='relu', name="conv1-1")(x)
-	x = ZeroPadding2D((1, 1))(x)
-	x = Conv2D(64, (3, 3), activation='relu', name="conv1-2")(x)
-	x, pos1 = MaxPooling2D(pool_size=2, strides=2, name="pool1")(x)
-
-	x = ZeroPadding2D((1, 1))(x)
-	x = Conv2D(128, (3, 3), activation='relu', name="conv2-1")(x)
-	x = ZeroPadding2D((1, 1))(x)
-	x = Conv2D(128, (3, 3), activation='relu', name="conv2-2")(x)
-	x, pos2 = MaxPooling2D(pool_size=2, strides=2, name="pool2")(x)
-
-	x = ZeroPadding2D((1, 1))(x)
-	x = Conv2D(256, (3, 3), activation='relu', name="conv3-1")(x)
-	x = ZeroPadding2D((1, 1))(x)
-	x = Conv2D(256, (3, 3), activation='relu', name="conv3-2")(x)
-	x = ZeroPadding2D((1, 1))(x)
-	x = Conv2D(256, (3, 3), activation='relu', name="conv3-3")(x)
-	x, pos3 = MaxPooling2D(pool_size=2, strides=2, name="pool3")(x)
-	
-	x = ZeroPadding2D((1, 1))(x)
-	x = Conv2D(256, (3, 3), activation='relu', name="conv4-1")(x)
-	x = ZeroPadding2D((1, 1))(x)
-	x = Conv2D(256, (3, 3), activation='relu', name="conv4-2")(x)
-	x = ZeroPadding2D((1, 1))(x)
-	x = Conv2D(256, (3, 3), activation='relu', name="conv4-3")(x)
-	x, pos4 = MaxPooling2D(pool_size=2, strides=2, name="pool4")(x)
-
-
-
-
 
 	if weights_path:
 		model.load_weights(weights_path, by_name = True)

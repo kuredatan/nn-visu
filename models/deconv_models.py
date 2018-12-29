@@ -1,5 +1,6 @@
 #coding: utf-8
 from __future__ import print_function
+import sys
 
 sys.path += ['../layers/']
 
@@ -10,17 +11,20 @@ from keras.constraints import maxnorm
 from keras.layers.normalization import BatchNormalization
 from keras.layers import Activation, Input
 from keras.layers.convolutional import Conv2D, ZeroPadding2D
-from pool_unpool import UndoMaxPooling2D
-from deconv2D import Deconv2D
+from pool_unpool import MaxPooling2D
 import torch
-
-## TODO cf. test.py
 
 sz = 224
 num_classes = 1000
 
+#If you want to reconstruct from a single feature map / activation, you can
+# simply set all the others to 0.
+
+# The Deconv2D layers should have the same name as the associated Conv2D layers.
+# The shapes can be extracted from [model to deconvolve].summary().
+
 ## CREDIT: https://gist.github.com/baraldilorenzo/07d7802847aaad0a35d3
-def VGG_16(pretrained=True, weights_path=None, noutputs=num_classes, layer=None):
+def VGG_16(pretrained=True, weights_path=None, noutputs=num_classes):
 	if (pretrained):
 		weights_path = './data/weights/vgg16_weights.h5'
 
@@ -78,7 +82,7 @@ def VGG_16(pretrained=True, weights_path=None, noutputs=num_classes, layer=None)
 	return model
 
 ## CREDIT: https://blog.plon.io/tutorials/cifar-10-classification-using-keras-tutorial/
-def Conv2(pretrained=True, weights_path=None, noutputs=num_classes, layer=None):
+def Conv2(pretrained=True, weights_path=None, noutputs=num_classes):
 	if (pretrained):
 		weights_path = './data/weights/conv2_weights.h5'
 

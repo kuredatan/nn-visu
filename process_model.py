@@ -16,7 +16,9 @@ from print_norm_utils import print_images, plot_kernels, normalize_input
 import models
 import deconv_models
 import argparse
+import glob
 import cv2
+import os
 
 ## CREDIT: Adapted from practicals/HMW2 from Andrea Vedaldi and Andrew Zisserman 
 ## by Gul Varol and Ignacio Rocco in PyTorch
@@ -49,6 +51,14 @@ parser.add_argument('--layer', type=str, default="conv1-1", metavar='Y',
                     help='Name of the layer to deconvolve.')
 args = parser.parse_args()
 
+folder = "./data/figures/"
+if not os.path.exists(folder):
+	os.mkdir(folder)
+
+folder += args.tdata + "/"
+if not os.path.exists(folder):
+	os.mkdir(folder)
+
 if (args.optimizer == "SGD"):
 	optimizer = SGD(lr = args.lr, decay=args.decay, momentum=args.momentum, nesterov=True)
 if (args.optimizer == "Adam"):
@@ -62,6 +72,17 @@ np.random.seed(1000)
 
 # Load data
 (X_train, Y_train), (X_test, Y_test) = cifar10.load_data()
+## CREDIT: https://github.com/tdeboissiere/DeepLearningImplementations/tree/master/DeconvNet
+if (args.trun != "training" and args.tdata == "CATS"):
+	list_img = glob.glob("./data/cats/*.jpg*")
+	assert len(list_img) > 0, "Put some images in the ./data/cats folder"
+	if len(list_img) < 32:
+		list_img = (int(32 / len(list_img)) + 2) * list_img
+		list_img = list_img[:32]
+	data = np.array([normalize_input(im_name, 32) for im_name in list_img])
+	X_test = np.array(data)
+	## Source for ImageNet labels: https://gist.github.com/yrevar/942d3a0ac09ec9e5eb3a
+	Y_test = [283, 281, 285, 281, 284, 282, 282, 281, 281, 281, 282]
 
 ## Decomment to print 10 random images from X_train
 #print_images(X_train, Y_train, num_classes=10, nrows=2)
@@ -72,10 +93,12 @@ num_classes = 1000
 ## CREDIT: https://keras.io/preprocessing/image/
 X_test = X_test.astype('float32')
 X_train = X_train.astype('float32')
-X_train /= 255
-X_test /= 255
+X_train /= 255.0
+X_test /= 255.0
 Y_train = to_categorical(Y_train, num_classes)
 Y_test = to_categorical(Y_test, num_classes)
+Y_test = Y_test.astype('float32')
+Y_train = Y_train.astype('float32')
 
 ## Cut X_train into training and validation datasets
 p = 0.30
@@ -91,13 +114,13 @@ d_models = {"conv": models.Conv, "vgg": models.VGG_16, "conv2": models.Conv2}
 d_dmodels = {"conv": deconv_models.Conv, "vgg": deconv_models.VGG_16, "conv2": deconv_models.Conv2}
 
 ## NN model
-model = d_models[args.tmodel](pretrained=(args.trun=="testing" and args.trained))
-model.compile(loss='categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
+model = d_models[args.tmodel](pretrained=(args.trun=="testing" and args.trained), deconv=args.trun == "deconv")
+if (args.trun != "deconv"):
+	model.compile(loss='categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
 
 ## "Deconvoluted" version of NN model
-deconv_model = d_dmodels[args.tmodel](pretrained=(args.trun=="deconv" and args.trained),
-	layer=args.layer if (args.trun=="deconv") else None)
-deconv_model.compile(loss='categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
+#deconv_model = d_dmodels[args.tmodel](pretrained=(args.trun=="deconv" and args.trained), layer=args.layer if (args.trun=="deconv") else None)
+#deconv_model.compile(loss='categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
 
 ## Print kernels in a given layer (for instance "conv1-1")
 #layers = [layer.name for layer in model.layers]
@@ -111,7 +134,9 @@ if (args.trun == "training"):
 	datagen_train = ImageDataGenerator(
 		featurewise_center=False,
 		featurewise_std_normalization=False,
-		preprocessing_function=normalize_input,
+		## Normalization
+		preprocessing_function=lambda x : normalize_input(x, 32),
+		## Data augmentation
 		rotation_range=20,
 		width_shift_range=0.2,
 		height_shift_range=0.2,
@@ -140,18 +165,23 @@ if (args.trun == "testing"):
 	datagen_test = ImageDataGenerator(
 		featurewise_center=False,
 		featurewise_std_normalization=False,
-		preprocessing_function=normalize_input,
+		## Normalization
+		preprocessing_function=lambda x : normalize_input(x, 32),
 	)
 	datagen_test.fit(X_test)
 	scores = model.evaluate_generator(datagen_test.flow(X_test, Y_test, batch_size=args.batch),
 		steps=np.shape(X_test)[0]//args.batch,verbose=2)
+	print(model.summary())
+	layers = [layer.name for layer in model.layers]
+	print(layers)
+	print(model.summary()[layers[0]])
 	print('Test loss: %.2f' % scores[0])
 	print('Test accuracy: %.2f' % scores[1])
 if (args.trun == "deconv"):
-	im_name = "./data/cats/cat1.jpg"
-	im = normalize_input(im_name, sz)
-	out = model.predict([im])
-	print("Predicted class = " + str(np.argmax(x)))
-	backward_net = backward_model()
+	i = 0
+	out = model.predict([X_test[i]])
+	print("Predicted class = " + str(np.argmax(out[0])))
 	out = deconv_model.predict(out)
-	## TODO save deconvolved features maps
+	plt.figure(figsize=(20, 20))
+	plt.imshow(out)
+	plt.savefig(folder + "fmap_" + str(i) + ".png", bbox_inches="tight")

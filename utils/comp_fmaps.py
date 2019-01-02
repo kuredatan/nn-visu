@@ -2,15 +2,18 @@
 
 ## Adapted from practicals from Andrea Vedaldi and Andrew Zisserman by Gul Varol and Ignacio Rocco (HMW1)
 
-import cyvlfeat
+import cv2
 import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import warnings
-from cyvlfeat.plot import plotframes
 from sklearn.neighbors import KDTree, DistanceMetric
 from sklearn.cluster import MiniBatchKMeans
 import os
+from print_norm_utils import normalize_input
+import glob
+import cyvlfeat
+from cyvlfeat.plot import plotframes
 
 thres = 0.01
 
@@ -21,7 +24,8 @@ mpl.rcParams['figure.dpi'] = 120
 # ignore warnings
 warnings.filterwarnings('ignore')
 
-folder = "./data/bow_sift_comp/"
+ff = "/home/reda/Projets20182019/Vision/Projet/interpretation/DeconvNet/"
+folder = ff+"data/bow_sift_comp/"
 if not os.path.exists(folder):
 	os.mkdir(folder)
 
@@ -30,7 +34,8 @@ if not os.path.exists(folder):
 ###########
 
 def rgb2gray(rgb):
-	return np.float32(np.dot(rgb[...,:3], [0.299, 0.587, 0.114])/255.0)
+	im = np.float32(np.dot(rgb[...,:3], [0.299, 0.587, 0.114])/255.0)
+	return im
 
 def plot_bovw(hst, title="mystery image"):
 	plt.hist(np.histogram(hst))
@@ -39,11 +44,12 @@ def plot_bovw(hst, title="mystery image"):
 	plt.ylabel("\'Count\'")
 	plt.show()
 
-def compute_SIFT(im, t=thres):
-	return cyvlfeat.sift.sift(rgb2gray(im),peak_thresh=t)
+def compute_SIFT(im):
+	sift = cyvlfeat.sift.sift(rgb2gray(im),peak_thresh=0.01)
+	return sift
 
-def get_descrs(im, t=thres):
-	return np.asarray(compute_SIFT(im, t=thres)[1], dtype=np.float32) 
+def get_descrs(im):
+	return np.asarray(compute_SIFT(im)[1], dtype=np.float32) 
 
 def get_histogram(descrs, tree, num_words):
 	N_frames = len(descrs)
@@ -74,26 +80,11 @@ def hellinger(hist1, hist2):
 hellinger_dm = DistanceMetric.get_metric(hellinger)
 
 # Plot the image and compute and plot (resp. possibly several) feature frames 
-# for image @im and threshold value (resp. array) @t
-def plot_SIFT(im, t=thres, figsize=8):
-	try:
-		s = len(t)
-	except:
-		s = 1
-	if (s == 1):
-		frames_arr = [compute_SIFT(im, t)[0]]
-	else:
-		frames_arr = [compute_SIFT(im, tv)[0] for tv in t]
-	# Make plots larger
-	f, ax_ls = plt.subplots(1, s, figsize=(figsize*s,figsize*s))
-	if (s == 1):
-		ax_ls = [ax_ls]
-	# In order to get the plots set horizontally
-	for i in range(s):
-		plt.sca(ax_ls[i])
-		plt.imshow(im)
-		plotframes(frames_arr[i], linewidth=1)
-	plt.show()
+# for image @im
+def plot_SIFT(im, figsize=8):
+	frames = compute_SIFT(im)[0]
+	img=cv2.drawKeypoints(im,frames,flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+	cv2.imwrite('sift_keypoints.jpg',img)
 
 def get_nn_ratio(u):
 	# Get distance values of the first two nearest neighbours
@@ -156,7 +147,7 @@ def ransac(frames1,frames2,matches,N_iters=100,dist_thresh=15):
 	max_inliers=0
 	tnf=None
 	# run random sampling
-  	for it in range(N_iters):
+	for it in range(N_iters):
 		# pick a random sample
 		i = np.random.randint(0,frames1.shape[0])
 		x_1,y_1,s_1,theta_1=frames1[i,:]
@@ -199,27 +190,27 @@ def ransac(frames1,frames2,matches,N_iters=100,dist_thresh=15):
 # images: list of image files to which the feature map should be compared
 # num_words: number of visual words to find with K-means
 def bow_comparison(fmap, images_list, name="cats", num_words=10, fmap_name="1"):
-	print("Start")
+	print("* Start")
 	name = "bow_" + name
 	if (not os.path.exists(folder + name + "_histograms.dat")):
 		descrs_list = list(map(get_descrs, images_list))
 		np.savetxt(folder + name + "_descrs.dat", np.matrix(descrs_list), delimiter=',')
-		print("Loaded descriptors")
+		print("* Loaded descriptors")
 		kmeans = MiniBatchKMeans(n_clusters=num_words, random_state=0, batch_size=6).fit(np.matrix(descrs_list))
 		vocab = kmeans.cluster_centers_
 		print(num_words, np.shape(vocab))
 		np.savetxt(folder + name + "_vocab.dat", vocab, delimiter=',')
-		print("Got visual words")
+		print("* Got visual words")
 		tree = KDTree(vocab, leaf_size=2, metric=hellinger_dm)
 		g_h = lambda d : get_histogram(d, tree, num_words)
 		histograms = list(map(g_h, descrs_list))
-		print("Computed histograms")
+		print("* Computed histograms")
 		tdf_idf = list(reduce(lambda x, y : x+y, histograms))
 		tdf_idf /= np.sum(tdf_idf)
 		histograms = list(map(lambda hist : preprocess_hist(hist, tdf_idf), histograms))
 		np.savetxt(folder + name + "_histograms.dat", np.matrix(histograms), delimiter=',')
 		np.savetxt(folder + name + "_tdf_idf.dat", tdf_idf, delimiter=',')
-		print("Computed TDF-IDF coefficients")
+		print("* Computed TDF-IDF coefficients")
 	else:
 		vocab = np.loadtxt(folder + name + "_vocab.dat", delimiter=',')
 		tree = KDTree(vocab, leaf_size=2, metric=hellinger_dm)
@@ -228,12 +219,12 @@ def bow_comparison(fmap, images_list, name="cats", num_words=10, fmap_name="1"):
 		tdf_idf = np.loadtxt(folder + name + "_tdf_idf.dat", delimiter=',')
 	descrs = get_descrs(fmap)
 	query_hist = preprocess_hist(g_h(descrs), tdf_idf)
-	plot_bovw(query_hist])
+	plot_bovw(query_hist)
 	scores = np.zeros((1, len(descrs_list)))
 	scores[0,:] = [compute_score(query_hist, hist_i, num_words) for hist_i in histograms]
 	np.savetxt(folder + name + "_" + fmap_name + "_scores.dat", tdf_idf, delimiter=',')
-	m = np.argmax(scores[0, :]))
-	print("Maximum score is " + str(scores[0, m]))
+	m = np.argmax(scores[0, :])
+	print("* Maximum score is " + str(scores[0, m]))
 	plot_bovw(histograms[m], title="closest image")
 	plot_bovw(query_hist)
 	scores_sorted_idx = np.argsort(-scores)
@@ -248,6 +239,16 @@ def bow_comparison(fmap, images_list, name="cats", num_words=10, fmap_name="1"):
 		plt.axis('off')
 		plt.title('score %1.2f' % scores_sorted.ravel()[i])
 
+## Test
+list_img = glob.glob("../data/cats/*.jpg*")
+assert len(list_img) > 0, "Put some images in the ./data/cats folder"
+if len(list_img) < 32:
+	list_img = (int(32 / len(list_img)) + 2) * list_img
+	list_img = list_img[:32]
+images_list = [normalize_input(im_name, 32) for im_name in list_img]
+fmap = normalize_input("cat7-1.jpg")
+bow_comparison(fmap, images_list)
+
 ###########################
 ## Correspondence points ##
 ###########################
@@ -261,12 +262,12 @@ def match_euclidean(d1, d2):
 # fmap: deconvoluted feature map
 # images: list of image files to which the feature map should be compared
 def corresp_comparison(fmap, images_list, name="cats", fmap_name="1"):
-	print("Start")
+	print("* Start")
 	name = "corresp_" + name
 	if (not os.path.exists(folder + name + "_descrs.dat")):
 		descrs = list(map(get_descrs, images_list))
 		np.savetxt(folder + name + "_descrs.dat", np.matrix(descrs), delimiter=',')
-		print("Loaded descriptors")
+		print("* Loaded descriptors")
 	else:
 		descrs = np.loadtxt(folder + name + "_descrs.dat", delimiter=',')
 	## Correspondance points with Euclidean distance

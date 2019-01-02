@@ -1,5 +1,7 @@
 from __future__ import print_function
 import keras.backend as K
+# https://github.com/tdeboissiere/DeepLearningImplementations/issues/9
+import theano as T
 import time
 import numpy as np
 np.set_printoptions(precision=2)
@@ -29,7 +31,9 @@ class DeconvNet(object):
             self.d_layers[l_name] = l
 
         # Tensor for function definitions
-        self.x = K.T.tensor4('x')
+	# https://github.com/tdeboissiere/DeepLearningImplementations/issues/9
+	#self.x = K.T.tensor4('x')
+        self.x = T.tensor.tensor4('x')
 
     def __getitem__(self, layer_name):
         try:

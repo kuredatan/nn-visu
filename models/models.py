@@ -18,12 +18,26 @@ import torch
 sz = 32
 num_classes = 1000
 
-## CREDIT: https://gist.github.com/baraldilorenzo/07d7802847aaad0a35d3
+from keras.applications.vgg16 import VGG16
+
+## Get weights for VGG16
+#model = VGG16(include_top=True, weights='imagenet', input_tensor=None, input_shape=None, pooling=None, classes=1000)
+#model.save_weights('vgg16_weights.h5')
+
 def VGG_16(pretrained=True, weights_path=None, noutputs=num_classes, deconv=False):
+	if (weights_path):
+		weights = "imagenet"
+	else:
+		weights = None
+	model = VGG16(include_top=True, weights=weights, input_shape=(sz, sz, 3), classes=num_classes)
+	return model
+
+## CREDIT: https://gist.github.com/baraldilorenzo/07d7802847aaad0a35d3
+def VGG_16_2(pretrained=True, weights_path=None, noutputs=num_classes, deconv=False):
 	if (pretrained):
 		weights_path = './data/weights/vgg16_weights.h5'
 
-	inp = Input(shape = (sz, sz, 3))
+	inp = Input(shape = (sz, sz, 3), name="input_1")
 
 	try:
 		x = Lambda(lambda image: ktf.image.resize_images(image, (224, 224)))(inp)
@@ -32,47 +46,47 @@ def VGG_16(pretrained=True, weights_path=None, noutputs=num_classes, deconv=Fals
 		x = Lambda(lambda image: ktf.image.resize_images(image, 224, 224))(inp)
 
 	x = ZeroPadding2D((1, 1))(x)
-	x = Conv2D(64, (3, 3), activation='relu', name="conv1-1")(x)
+	x = Conv2D(64, (3, 3), activation='relu', name="block1_conv1")(x)
 	x = ZeroPadding2D((1, 1))(x)
-	x = Conv2D(64, (3, 3), activation='relu', name="conv1-2")(x)
-	x, pos1 = MaxPooling2D(pool_size=2, strides=2, name="pool1")(x)
+	x = Conv2D(64, (3, 3), activation='relu', name="block1_conv2")(x)
+	x, pos1 = MaxPooling2D(pool_size=2, strides=2, name="block1_pool")(x)
 
 	x = ZeroPadding2D((1, 1))(x)
-	x = Conv2D(128, (3, 3), activation='relu', name="conv2-1")(x)
+	x = Conv2D(128, (3, 3), activation='relu', name="block2_conv1")(x)
 	x = ZeroPadding2D((1, 1))(x)
-	x = Conv2D(128, (3, 3), activation='relu', name="conv2-2")(x)
-	x, pos2 = MaxPooling2D(pool_size=2, strides=2, name="pool2")(x)
+	x = Conv2D(128, (3, 3), activation='relu', name="block2_conv2")(x)
+	x, pos2 = MaxPooling2D(pool_size=2, strides=2, name="block2_pool")(x)
 
 	x = ZeroPadding2D((1, 1))(x)
-	x = Conv2D(256, (3, 3), activation='relu', name="conv3-1")(x)
+	x = Conv2D(256, (3, 3), activation='relu', name="block3_conv1")(x)
 	x = ZeroPadding2D((1, 1))(x)
-	x = Conv2D(256, (3, 3), activation='relu', name="conv3-2")(x)
+	x = Conv2D(256, (3, 3), activation='relu', name="block3_conv2")(x)
 	x = ZeroPadding2D((1, 1))(x)
-	x = Conv2D(256, (3, 3), activation='relu', name="conv3-3")(x)
-	x, pos3 = MaxPooling2D(pool_size=2, strides=2, name="pool3")(x)
+	x = Conv2D(256, (3, 3), activation='relu', name="block3_conv3 ")(x)
+	x, pos3 = MaxPooling2D(pool_size=2, strides=2, name="block3_pool")(x)
 	
 	x = ZeroPadding2D((1, 1))(x)
-	x = Conv2D(256, (3, 3), activation='relu', name="conv4-1")(x)
+	x = Conv2D(256, (3, 3), activation='relu', name="block4_conv1")(x)
 	x = ZeroPadding2D((1, 1))(x)
-	x = Conv2D(256, (3, 3), activation='relu', name="conv4-2")(x)
+	x = Conv2D(256, (3, 3), activation='relu', name="block4_conv2")(x)
 	x = ZeroPadding2D((1, 1))(x)
-	x = Conv2D(256, (3, 3), activation='relu', name="conv4-3")(x)
-	x, pos4 = MaxPooling2D(pool_size=2, strides=2, name="pool4")(x)
+	x = Conv2D(256, (3, 3), activation='relu', name="block4_conv3")(x)
+	x, pos4 = MaxPooling2D(pool_size=2, strides=2, name="block4_pool")(x)
 
 	x = ZeroPadding2D((1, 1))(x)
-	x = Conv2D(512, (3, 3), activation='relu', name="conv5-1")(x)
+	x = Conv2D(512, (3, 3), activation='relu', name="block5_conv1")(x)
 	x = ZeroPadding2D((1, 1))(x)
-	x = Conv2D(512, (3, 3), activation='relu', name="conv5-2")(x)
+	x = Conv2D(512, (3, 3), activation='relu', name="block5_conv2")(x)
 	x = ZeroPadding2D((1, 1))(x)
-	x = Conv2D(512, (3, 3), activation='relu', name="conv5-3")(x)
-	x, pos5 = MaxPooling2D(pool_size=2, strides=2, name="pool5")(x)
+	x = Conv2D(512, (3, 3), activation='relu', name="block5_conv3")(x)
+	x, pos5 = MaxPooling2D(pool_size=2, strides=2, name="block5_pool")(x)
 
-	x = Flatten()(x)
-	x = Dense(4096, activation='relu', name="dense1")(x)
+	x = Flatten(name="flatten")(x)
+	x = Dense(4096, activation='relu', name="fc1")(x)
 	x = Dropout(0.5)(x)
-	x = Dense(4096, activation='relu', name="dense2")(x)
+	x = Dense(4096, activation='relu', name="fc2")(x)
 	x = Dropout(0.5)(x)
-	x = Dense(noutputs, activation='softmax', name="dense3")(x)
+	x = Dense(noutputs, activation='softmax', name="predictions")(x)
 
 	if (deconv):
 		outputs = [x, pos1, pos2, pos3, pos4, pos5]

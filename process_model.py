@@ -21,6 +21,7 @@ import argparse
 import glob
 import cv2
 import os
+from imagenet1000 import imagenet1000
 from utils import get_deconv_images, plot_deconv, plot_max_activation, find_top9_mean_act
 
 ## CREDIT: Adapted from practicals/HMW2 from Andrea Vedaldi and Andrew Zisserman 
@@ -43,7 +44,7 @@ parser.add_argument('--epoch', type=int, default=10, metavar='E',
 parser.add_argument('--optimizer', type=str, default="SGD", metavar='O',
                     help='SGD/Adam optimizers.')
 parser.add_argument('--trained', type=int, default=1, metavar='T',
-                    help='Import initialized weights [0, 1].')
+                    help='Import initialized weights: in {0, 1}.')
 parser.add_argument('--lr', type=float, default=0.1, metavar='L',
                     help='Learning rate in (0,1).')
 parser.add_argument('--decay', type=float, default=1e-6, metavar='C',
@@ -53,7 +54,11 @@ parser.add_argument('--momentum', type=float, default=0.9, metavar='U',
 parser.add_argument('--layer', type=str, default="conv1-1", metavar='Y',
                     help='Name of the layer to deconvolve.')
 parser.add_argument('--verbose', type=int, default=0, metavar='V',
-                    help='Whether to print things or not: in [0, 1].')
+                    help='Whether to print things or not: in {0, 1}.')
+parser.add_argument('--subtask', type=str, default="", metavar='S',
+                    help='Sub-task for deconvolution.')
+parser.add_argument('--tdeconv', type=str, default="keras", metavar='K',
+                    help='Choice of implementation for deconvolution: Mihai Dusmanu\'s (\'custom\') or DeepLearningImplementations (\'keras\').')
 args = parser.parse_args()
 
 folder = "./data/figures/"
@@ -69,6 +74,11 @@ if (args.optimizer == "SGD"):
 if (args.optimizer == "Adam"):
 	optimizer = Adam(lr=args.lr, decay=args.decay)
 
+if (args.tmodel == "vgg"):
+	sz = 32#224
+else:
+	sz = 32
+
 ## CREDIT: Keras training on CIFAR-10 
 ## https://gist.github.com/giuseppebonaccorso/e77e505fc7b61983f7b42dc1250f31c8
 
@@ -81,18 +91,24 @@ np.random.seed(1000)
 if (args.trun != "training" and args.tdata == "CATS"):
 	list_img = glob.glob("./data/cats/*.jpg*")
 	assert len(list_img) > 0, "Put some images in the ./data/cats folder"
-	if len(list_img) < 32:
-		list_img = (int(32 / len(list_img)) + 2) * list_img
-		list_img = list_img[:32]
-	data = np.array([normalize_input(im_name, 32) for im_name in list_img])
-	X_test = np.array(data)
+	labels = [283, 281, 285, 281, 284, 282, 282, 281, 281, 281, 282]
+	if len(list_img) < args.batch:
+		list_img = (int(args.batch / len(list_img)) + 2) * list_img
+		list_img = list_img[:args.batch]
+		labels = (int(args.batch / len(labels)) + 2) * labels
+		labels = labels[:args.batch]
+	data = np.array([normalize_input(im_name, sz) for im_name in list_img])
+	X_test = data.reshape((np.shape(data)[0], np.shape(data)[2], np.shape(data)[3], np.shape(data)[4]))
 	## Source for ImageNet labels: https://gist.github.com/yrevar/942d3a0ac09ec9e5eb3a
-	Y_test = [283, 281, 285, 281, 284, 282, 282, 281, 281, 281, 282]
+	Y_test = np.array(labels)
 
 ## Decomment to print 10 random images from X_train
 #print_images(X_train, Y_train, num_classes=10, nrows=2)
 
-num_classes = 1000
+if (args.trun != "training" and args.tdata == "CATS"):
+	num_classes = 1000#300
+else:
+	num_classes = 1000#10
 
 ## Preprocessing
 ## CREDIT: https://keras.io/preprocessing/image/
@@ -100,10 +116,10 @@ X_test = X_test.astype('float32')
 X_train = X_train.astype('float32')
 X_train /= 255.0
 X_test /= 255.0
-Y_train = to_categorical(Y_train, num_classes)
-Y_test = to_categorical(Y_test, num_classes)
-Y_test = Y_test.astype('float32')
-Y_train = Y_train.astype('float32')
+Y_train_c = to_categorical(Y_train, num_classes)
+Y_test_c = to_categorical(Y_test, num_classes)
+Y_test_c = Y_test.astype('float32')
+Y_train_c = Y_train.astype('float32')
 
 ## Cut X_train into training and validation datasets
 p = 0.30
@@ -111,9 +127,9 @@ n = np.shape(X_train)[0]
 in_val = sample(range(n), int(p*n))
 in_train = list(set(in_val).symmetric_difference(range(n)))
 X_val = X_train[in_val, :, :, :]
-Y_val = Y_train[in_val, :]
+Y_val_c = Y_train_c[in_val, :]
 X_train = X_train[in_train, :, :, :]
-Y_train = Y_train[in_train, :]
+Y_train_c = Y_train_c[in_train, :]
 
 d_models = {"conv": models.Conv, "vgg": models.VGG_16, "conv2": models.Conv2}
 d_dmodels = {"conv": deconv_models.Conv, "vgg": deconv_models.VGG_16, "conv2": deconv_models.Conv2}
@@ -121,15 +137,24 @@ d_dmodels = {"conv": deconv_models.Conv, "vgg": deconv_models.VGG_16, "conv2": d
 ## NN model
 model = d_models[args.tmodel](pretrained=(args.trun=="testing" and args.trained), deconv=args.trun == "deconv")
 if (args.trun != "deconv"):
-	model.compile(loss='categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
+	model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
 
 ## "Deconvoluted" version of NN models
-#deconv_model = d_dmodels[args.tmodel](pretrained=(args.trun=="deconv" and args.trained), layer=args.layer if (args.trun=="deconv") else None)
-#deconv_model.compile(loss='categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
-deconv_model = DeconvNet(model)
+if (args.tdeconv == "custom" and args.trun == "deconv"):
+	deconv_model = d_dmodels[args.tmodel](pretrained=(args.trun=="deconv" and args.trained), layer=args.layer if (args.trun=="deconv") else None)
+if (args.tdeconv == "keras" and args.trun == "deconv"):
+	## Or the implementation of DeconvNet in Keras
+	deconv_model = DeconvNet(model)
+if (args.trun == "deconv"):
+	deconv_model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
 
 ## Print kernels in a given layer (for instance "conv1-1")
-#layers = [layer.name for layer in model.layers]
+layers = [layer.name for layer in model.layers]
+if (args.verbose == 1):
+	print("Layer names for model " + args.tmodel + ":\n")
+	print(layers)
+	print("______________________\nSummary:\n\n")
+	print(model.summary())
 #plot_kernels(model, layers[0])
 
 ###########################################
@@ -138,10 +163,12 @@ deconv_model = DeconvNet(model)
 
 if (args.trun == "training"):
 	datagen_train = ImageDataGenerator(
+		## NOT to use https://github.com/keras-team/keras/issues/3477
+		#rescale=1. / 255,
 		featurewise_center=False,
 		featurewise_std_normalization=False,
 		## Normalization
-		preprocessing_function=lambda x : normalize_input(x, 32),
+		preprocessing_function=lambda x : normalize_input(x, sz),
 		## Data augmentation
 		rotation_range=20,
 		width_shift_range=0.2,
@@ -153,12 +180,13 @@ if (args.trun == "training"):
 	# (std, mean, and principal components if ZCA whitening is applied)
 	datagen_train.fit(X_train)
 	datagen_val.fit(X_val)
+	generator = datagen_train.flow(X_train, Y_train_c, batch_size=args.batch)
 	# fits the model on batches with real-time data augmentation:
-	hist = model.fit_generator(datagen_train.flow(X_train, Y_train, batch_size=args.batch),
+	hist = model.fit_generator(datagen_train.flow(X_train, Y_train_c, batch_size=args.batch),
 		shuffle=True,
 		steps_per_epoch=int((1-p)*n)//args.batch,
 		epochs=args.epoch,
-		validation_data=datagen_val.flow(X_val, Y_val),
+		validation_data=datagen_val.flow(X_val, Y_val_c),
 		validation_steps=int(p*n)//args.batch,
 		#callbacks=[EarlyStopping(min_delta=0.001, patience=10)],
 		verbose=2)
@@ -169,29 +197,57 @@ if (args.trun == "training"):
 	model.save_weights('./data/weights/'+args.tmodel+'_weights.h5')
 if (args.trun == "testing"):
 	datagen_test = ImageDataGenerator(
+		## NOT to use https://github.com/keras-team/keras/issues/3477
+		#rescale=1. / 255,
 		featurewise_center=False,
 		featurewise_std_normalization=False,
 		## Normalization
-		preprocessing_function=lambda x : normalize_input(x, 32),
+		preprocessing_function=lambda x : normalize_input(x, sz),
 	)
 	datagen_test.fit(X_test)
-	scores = model.evaluate_generator(datagen_test.flow(X_test, Y_test, batch_size=args.batch),
+	scores = model.evaluate_generator(datagen_test.flow(X_test, Y_test_c, batch_size=args.batch),
 		steps=np.shape(X_test)[0]//args.batch,verbose=2)
 	if (args.verbose):
 		print(model.summary())
 	print('Test loss: %.2f' % scores[0])
 	print('Test accuracy: %.2f' % scores[1])
 if (args.trun == "deconv"):
-	i = 0
-	out = model.predict([X_test[i]])
-	print("Predicted class = " + str(np.argmax(out[0])))
-	out = deconv_model.predict(out)
+	out = model.predict(X_test)
+	k = min(np.shape(out[0])[0], 5)
+	labels = [imagenet1000[np.argmax(out[0][i])] for i in range(k)]
+	print("* First "+str(k)+" Predicted Classes = \n" + str(labels))
+	print("* Associated Real Classes = \n" + str([imagenet1000[i] for i in Y_test[:k].T[0].tolist()]))
+	print(np.shape(out[0]),np.shape(out[1]),np.shape(out[2]))
+	if (args.tdeconv == "keras"):
+		out = deconv_model.get_deconv(X, layers[-1])#target_layer)
+	else:
+		out = deconv_model.predict(out)
 	plt.figure(figsize=(20, 20))
 	plt.imshow(out)
+	plt.show()
 	## Save output feature map
 	#If you want to reconstruct from a single feature map / activation, you can
 	# simply set all the others to 0. (in file "models/deconv_models.py")
 	plt.savefig(folder + "fmap_" + str(i) + ".png", bbox_inches="tight")
+	if (args.subtask == "max_activation"):
+		get_max_act = True
+		if get_max_act:
+			if not model:
+				model = load_model('./Data/vgg16_weights.h5')
+			if not Dec:
+				Dec = KerasDeconv.DeconvNet(model)
+		d_act_path = './Data/dict_top9_mean_act.pickle'
+		d_act = {"convolution2d_13": {},
+			 "convolution2d_10": {}
+			 }
+		for feat_map in range(10):
+			d_act["convolution2d_13"][feat_map] = find_top9_mean_act(
+				data, Dec, "convolution2d_13", feat_map, batch_size=32)
+			d_act["convolution2d_10"][feat_map] = find_top9_mean_act(
+				data, Dec, "convolution2d_10", feat_map, batch_size=32)
+			with open(d_act_path, 'w') as f:
+				pickle.dump(d_act, f)
+
 
 ###################################################################
 ###################################################################
@@ -199,23 +255,7 @@ if (args.trun == "deconv"):
     ###############################################
     # Action 1) Get max activation for a secp ~/deconv_specificlection of feat maps
     ###############################################
-#    get_max_act = True
-#    if get_max_act:
-#        if not model:
-#            model = load_model('./Data/vgg16_weights.h5')
-#        if not Dec:
-#            Dec = KerasDeconv.DeconvNet(model)
-#        d_act_path = './Data/dict_top9_mean_act.pickle'
-#        d_act = {"convolution2d_13": {},
-#                 "convolution2d_10": {}
-#                 }
-#        for feat_map in range(10):
-#            d_act["convolution2d_13"][feat_map] = find_top9_mean_act(
-#                data, Dec, "convolution2d_13", feat_map, batch_size=32)
-#            d_act["convolution2d_10"][feat_map] = find_top9_mean_act(
-#                data, Dec, "convolution2d_10", feat_map, batch_size=32)
-#            with open(d_act_path, 'w') as f:
-#                pickle.dump(d_act, f)
+
 
     ###############################################
     # Action 2) Get deconv images of images that maximally activate

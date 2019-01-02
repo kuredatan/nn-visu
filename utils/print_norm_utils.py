@@ -48,5 +48,6 @@ def normalize_input(im, sz=224):
 	im[:,:,0] -= 103.939
 	im[:,:,1] -= 116.779
 	im[:,:,2] -= 123.68
-	im = np.expand_dims(im, axis=0)
+	#im = (im-np.mean(im))/np.std(im)
+	#im = np.expand_dims(im, axis=0)
 	return im

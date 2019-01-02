@@ -2,7 +2,6 @@
 
 ## Adapted from practicals from Andrea Vedaldi and Andrew Zisserman by Gul Varol and Ignacio Rocco (HMW1)
 
-import cv2
 import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -10,10 +9,27 @@ import warnings
 from sklearn.neighbors import KDTree, DistanceMetric
 from sklearn.cluster import MiniBatchKMeans
 import os
-from print_norm_utils import normalize_input
+#from print_norm_utils import normalize_input
 import glob
 import cyvlfeat
 from cyvlfeat.plot import plotframes
+from PIL import Image
+
+sz = 32
+
+def normalize_input(im, sz=224):
+	if (str(type(im)) == "<class \'str\'>"):
+		img = Image.open(im)
+		img.load()
+		im = np.asarray(img, dtype=np.float32)
+	im = np.resize(im, (sz, sz)).astype(np.float32)
+	## Values from VGG authors
+	#im[:,:,0] -= 103.939
+	#im[:,:,1] -= 116.779
+	#im[:,:,2] -= 123.68
+	im = (im-np.mean(im))/np.std(im)
+	#im = np.expand_dims(im, axis=0)
+	return im
 
 thres = 0.01
 
@@ -242,11 +258,8 @@ def bow_comparison(fmap, images_list, name="cats", num_words=10, fmap_name="1"):
 ## Test
 list_img = glob.glob("../data/cats/*.jpg*")
 assert len(list_img) > 0, "Put some images in the ./data/cats folder"
-if len(list_img) < 32:
-	list_img = (int(32 / len(list_img)) + 2) * list_img
-	list_img = list_img[:32]
-images_list = [normalize_input(im_name, 32) for im_name in list_img]
-fmap = normalize_input("cat7-1.jpg")
+images_list = [normalize_input(im_name, sz) for im_name in list_img]
+fmap = normalize_input("cat7-1.jpg", sz)
 bow_comparison(fmap, images_list)
 
 ###########################

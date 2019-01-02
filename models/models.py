@@ -29,7 +29,12 @@ def VGG_16(pretrained=True, weights_path=None, noutputs=num_classes, deconv=Fals
 		weights = "imagenet"
 	else:
 		weights = None
-	model = VGG16(include_top=True, weights=weights, input_shape=(sz, sz, 3), classes=num_classes)
+	model = VGG16(include_top=True, weights=weights, input_shape=(sz, sz, 3), classes=1000)
+	# https://stackoverflow.com/questions/41668813/how-to-add-and-remove-new-layers-in-keras-after-loading-weights
+	if (num_classes != 1000):
+		model.layers.pop()
+		x = Dense(num_classes, activation='softmax', name="predictions")(model.layers[-1].output)
+		model = Model(input=model.input, output=[x])
 	return model
 
 ## CREDIT: https://gist.github.com/baraldilorenzo/07d7802847aaad0a35d3

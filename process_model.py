@@ -98,7 +98,10 @@ if (args.trun != "training" and args.tdata == "CATS"):
 		labels = (int(args.batch / len(labels)) + 2) * labels
 		labels = labels[:args.batch]
 	data = np.array([normalize_input(im_name, sz) for im_name in list_img])
-	X_test = data.reshape((np.shape(data)[0], np.shape(data)[2], np.shape(data)[3], np.shape(data)[4]))
+	if (len(np.shape(data)) > 4):
+		X_test = data.reshape((np.shape(data)[0], np.shape(data)[2], np.shape(data)[3], np.shape(data)[4]))
+	else:
+		X_test = data
 	## Source for ImageNet labels: https://gist.github.com/yrevar/942d3a0ac09ec9e5eb3a
 	Y_test = np.array(labels)
 
@@ -108,7 +111,7 @@ if (args.trun != "training" and args.tdata == "CATS"):
 if (args.trun != "training" and args.tdata == "CATS"):
 	num_classes = 1000#300
 else:
-	num_classes = 1000#10
+	num_classes = 10#1000
 
 ## Preprocessing
 ## CREDIT: https://keras.io/preprocessing/image/
@@ -142,11 +145,10 @@ if (args.trun != "deconv"):
 ## "Deconvoluted" version of NN models
 if (args.tdeconv == "custom" and args.trun == "deconv"):
 	deconv_model = d_dmodels[args.tmodel](pretrained=(args.trun=="deconv" and args.trained), layer=args.layer if (args.trun=="deconv") else None)
+	deconv_model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
 if (args.tdeconv == "keras" and args.trun == "deconv"):
 	## Or the implementation of DeconvNet in Keras
 	deconv_model = DeconvNet(model)
-if (args.trun == "deconv"):
-	deconv_model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
 
 ## Print kernels in a given layer (for instance "conv1-1")
 layers = [layer.name for layer in model.layers]
@@ -165,8 +167,8 @@ if (args.trun == "training"):
 	datagen_train = ImageDataGenerator(
 		## NOT to use https://github.com/keras-team/keras/issues/3477
 		#rescale=1. / 255,
-		featurewise_center=False,
-		featurewise_std_normalization=False,
+		featurewise_center=True,
+		featurewise_std_normalization=True,
 		## Normalization
 		preprocessing_function=lambda x : normalize_input(x, sz),
 		## Data augmentation
@@ -174,6 +176,7 @@ if (args.trun == "training"):
 		width_shift_range=0.2,
 		height_shift_range=0.2,
 		horizontal_flip=True,
+		data_format="channels_last",
 	)
 	datagen_val = deepcopy(datagen_train)
 	# compute quantities required for featurewise normalization
@@ -188,29 +191,37 @@ if (args.trun == "training"):
 		epochs=args.epoch,
 		validation_data=datagen_val.flow(X_val, Y_val_c),
 		validation_steps=int(p*n)//args.batch,
+		#data_format="channels_last",
 		#callbacks=[EarlyStopping(min_delta=0.001, patience=10)],
 		verbose=2)
-	print("Final Accuracy: %.3f" % hist.history["acc"][-1])
-	print("Final (Validation) Accuracy: %.3f" % hist.history["val_acc"][-1])
-	print("Final Loss: %.3f" % hist.history["loss"][-1])
-	print("Final (Validation) Loss: %.3f" %hist.history["val_loss"][-1])
+	print("* Final Accuracy: %.3f" % hist.history["acc"][-1])
+	print("* Final (Validation) Accuracy: %.3f" % hist.history["val_acc"][-1])
+	print("* Final Loss: %.3f" % hist.history["loss"][-1])
+	print("* Final (Validation) Loss: %.3f" %hist.history["val_loss"][-1])
 	model.save_weights('./data/weights/'+args.tmodel+'_weights.h5')
 if (args.trun == "testing"):
 	datagen_test = ImageDataGenerator(
 		## NOT to use https://github.com/keras-team/keras/issues/3477
 		#rescale=1. / 255,
-		featurewise_center=False,
-		featurewise_std_normalization=False,
+		featurewise_center=True,
+		featurewise_std_normalization=True,
 		## Normalization
+		data_format="channels_last",
 		preprocessing_function=lambda x : normalize_input(x, sz),
 	)
 	datagen_test.fit(X_test)
 	scores = model.evaluate_generator(datagen_test.flow(X_test, Y_test_c, batch_size=args.batch),
 		steps=np.shape(X_test)[0]//args.batch,verbose=2)
+	labels = model.predict_generator(datagen_test.flow(X_test, Y_test_c, batch_size=args.batch),
+		steps=np.shape(X_test)[0]//args.batch,verbose=2)
 	if (args.verbose):
 		print(model.summary())
-	print('Test loss: %.2f' % scores[0])
-	print('Test accuracy: %.2f' % scores[1])
+	print("* Predicted Labels:")
+	print([np.argmax(labels[i]) for i in range(np.shape(labels)[0])])
+	print("* Real Labels:")
+	print(Y_test.T)
+	print('* Test loss: %.2f' % scores[0])
+	print('* Test accuracy: %.2f' % scores[1])
 if (args.trun == "deconv"):
 	out = model.predict(X_test)
 	k = min(np.shape(out[0])[0], 5)
@@ -219,7 +230,7 @@ if (args.trun == "deconv"):
 	print("* Associated Real Classes = \n" + str([imagenet1000[i] for i in Y_test[:k].T[0].tolist()]))
 	print(np.shape(out[0]),np.shape(out[1]),np.shape(out[2]))
 	if (args.tdeconv == "keras"):
-		out = deconv_model.get_deconv(X, layers[-1])#target_layer)
+		out = deconv_model.get_deconv(out[0], layers[-1])#target_layer)
 	else:
 		out = deconv_model.predict(out)
 	plt.figure(figsize=(20, 20))

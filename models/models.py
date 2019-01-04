@@ -15,16 +15,15 @@ from pool_unpool import MaxPooling2D
 from keras.backend import tf as ktf
 import torch
 
-sz = 32
 num_classes = 1000
 
 from keras.applications.vgg16 import VGG16
 
 ## Get weights for VGG16
-#model = VGG16(include_top=True, weights='imagenet', input_tensor=None, input_shape=None, pooling=None, classes=1000)
+#model = VGG16(include_top=True, weights='imagenet', classes=num_classes)
 #model.save_weights('vgg16_weights.h5')
 
-def VGG_16(pretrained=True, weights_path=None, noutputs=num_classes, deconv=False):
+def VGG_16(pretrained=True, weights_path=None, noutputs=num_classes, deconv=False, sz=32):
 	if (weights_path):
 		weights = "imagenet"
 	else:
@@ -38,7 +37,7 @@ def VGG_16(pretrained=True, weights_path=None, noutputs=num_classes, deconv=Fals
 	return model
 
 ## CREDIT: https://gist.github.com/baraldilorenzo/07d7802847aaad0a35d3
-def VGG_16_2(pretrained=True, weights_path=None, noutputs=num_classes, deconv=False):
+def VGG_16_2(pretrained=True, weights_path=None, noutputs=num_classes, deconv=False, sz=32):
 	if (pretrained):
 		weights_path = './data/weights/vgg16_weights.h5'
 
@@ -106,7 +105,7 @@ def VGG_16_2(pretrained=True, weights_path=None, noutputs=num_classes, deconv=Fa
 	return model
 
 ## CREDIT: https://blog.plon.io/tutorials/cifar-10-classification-using-keras-tutorial/
-def Conv2(pretrained=True, weights_path=None, noutputs=num_classes, deconv=False):
+def Conv2(pretrained=True, weights_path=None, noutputs=num_classes, deconv=False, sz=32):
 	if (pretrained):
 		weights_path = './data/weights/conv2_weights.h5'
 
@@ -141,7 +140,7 @@ def Conv2(pretrained=True, weights_path=None, noutputs=num_classes, deconv=False
 	return model
 
 ## CREDIT: https://blog.plon.io/tutorials/cifar-10-classification-using-keras-tutorial/
-def Conv(pretrained=True, weights_path=None, noutputs=num_classes, deconv=False):
+def Conv(pretrained=True, weights_path=None, noutputs=num_classes, deconv=False, sz=32):
 	if (pretrained):
 		weights_path = './data/weights/conv_weights.h5'
 

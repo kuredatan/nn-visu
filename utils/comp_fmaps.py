@@ -22,12 +22,12 @@ def normalize_input(im, sz=224):
 		img = Image.open(im)
 		img.load()
 		im = np.asarray(img, dtype=np.float32)
-	im = np.resize(im, (sz, sz)).astype(np.float32)
+	#im = np.resize(im, (sz, sz)).astype(np.float32)
 	## Values from VGG authors
 	#im[:,:,0] -= 103.939
 	#im[:,:,1] -= 116.779
 	#im[:,:,2] -= 123.68
-	im = (im-np.mean(im))/np.std(im)
+	#im = (im-np.mean(im))/np.std(im)
 	#im = np.expand_dims(im, axis=0)
 	return im
 
@@ -209,15 +209,21 @@ def bow_comparison(fmap, images_list, name="cats", num_words=10, fmap_name="1"):
 	print("* Start")
 	name = "bow_" + name
 	if (not os.path.exists(folder + name + "_histograms.dat")):
-		descrs_list = list(map(get_descrs, images_list))
-		np.savetxt(folder + name + "_descrs.dat", np.matrix(descrs_list), delimiter=',')
+		if (not os.path.exists(folder + name + "_descrs.dat")):
+			descrs_list = list(map(get_descrs, images_list))
+			np.savetxt(folder + name + "_descrs.dat", np.matrix(descrs_list), delimiter=',')
+		else:
+			descrs_list = np.loadtxt(folder + name + "_descrs.dat", delimiter=',')
 		print("* Loaded descriptors")
-		kmeans = MiniBatchKMeans(n_clusters=num_words, random_state=0, batch_size=6).fit(np.matrix(descrs_list))
-		vocab = kmeans.cluster_centers_
-		print(num_words, np.shape(vocab))
-		np.savetxt(folder + name + "_vocab.dat", vocab, delimiter=',')
+		if (not os.path.exists(folder + name + "_vocab.dat")):
+			kmeans = MiniBatchKMeans(n_clusters=num_words, random_state=0, batch_size=6).fit(np.matrix(descrs_list))
+			vocab = kmeans.cluster_centers_
+			print("#words = ", num_words, ";shape vocab = ", np.shape(vocab))
+			np.savetxt(folder + name + "_vocab.dat", vocab, delimiter=',')
+		else:
+			vocab = np.loadtxt(folder + name + "_vocab.dat", delimiter=',')
 		print("* Got visual words")
-		tree = KDTree(vocab, leaf_size=2, metric=hellinger_dm)
+		tree = KDTree(vocab, leaf_size=2)#, metric=hellinger_dm)
 		g_h = lambda d : get_histogram(d, tree, num_words)
 		histograms = list(map(g_h, descrs_list))
 		print("* Computed histograms")

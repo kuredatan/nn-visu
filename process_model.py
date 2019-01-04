@@ -22,6 +22,7 @@ import glob
 import cv2
 import os
 from imagenet1000 import imagenet1000
+from cats import dict_labels_cats
 from utils import get_deconv_images, plot_deconv, plot_max_activation, find_top9_mean_act
 
 ## CREDIT: Adapted from practicals/HMW2 from Andrea Vedaldi and Andrew Zisserman 
@@ -74,6 +75,7 @@ if (args.optimizer == "SGD"):
 if (args.optimizer == "Adam"):
 	optimizer = Adam(lr=args.lr, decay=args.decay)
 
+## Size of resized images
 if (args.tmodel == "vgg"):
 	sz = 32#224
 else:
@@ -91,7 +93,7 @@ np.random.seed(1000)
 if (args.trun != "training" and args.tdata == "CATS"):
 	list_img = glob.glob("./data/cats/*.jpg*")
 	assert len(list_img) > 0, "Put some images in the ./data/cats folder"
-	labels = [283, 281, 285, 281, 284, 282, 282, 281, 281, 281, 282]
+	labels = [dict_labels_cats[img] for img in list_img]
 	if len(list_img) < args.batch:
 		list_img = (int(args.batch / len(list_img)) + 2) * list_img
 		list_img = list_img[:args.batch]
@@ -102,16 +104,12 @@ if (args.trun != "training" and args.tdata == "CATS"):
 		X_test = data.reshape((np.shape(data)[0], np.shape(data)[2], np.shape(data)[3], np.shape(data)[4]))
 	else:
 		X_test = data
-	## Source for ImageNet labels: https://gist.github.com/yrevar/942d3a0ac09ec9e5eb3a
 	Y_test = np.array(labels)
 
-## Decomment to print 10 random images from X_train
-#print_images(X_train, Y_train, num_classes=10, nrows=2)
-
 if (args.trun != "training" and args.tdata == "CATS"):
-	num_classes = 1000#300
+	num_classes = 1000
 else:
-	num_classes = 10#1000
+	num_classes = 10
 
 ## Preprocessing
 ## CREDIT: https://keras.io/preprocessing/image/
@@ -123,6 +121,9 @@ Y_train_c = to_categorical(Y_train, num_classes)
 Y_test_c = to_categorical(Y_test, num_classes)
 Y_test_c = Y_test.astype('float32')
 Y_train_c = Y_train.astype('float32')
+
+## Decomment to print 10 random images from X_train
+#print_images(X_train, Y_train, num_classes=num_classes, nrows=2)
 
 ## Cut X_train into training and validation datasets
 p = 0.30
@@ -138,7 +139,7 @@ d_models = {"conv": models.Conv, "vgg": models.VGG_16, "conv2": models.Conv2}
 d_dmodels = {"conv": deconv_models.Conv, "vgg": deconv_models.VGG_16, "conv2": deconv_models.Conv2}
 
 ## NN model
-model = d_models[args.tmodel](pretrained=(args.trun=="testing" and args.trained), deconv=args.trun == "deconv")
+model = d_models[args.tmodel](pretrained=(args.trun=="testing" and args.trained), deconv=args.trun == "deconv", sz=sz)
 if (args.trun != "deconv"):
 	model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
 
@@ -150,14 +151,16 @@ if (args.tdeconv == "keras" and args.trun == "deconv"):
 	## Or the implementation of DeconvNet in Keras
 	deconv_model = DeconvNet(model)
 
-## Print kernels in a given layer (for instance "conv1-1")
+## Print kernels in a given layer
 layers = [layer.name for layer in model.layers]
 if (args.verbose == 1):
 	print("Layer names for model " + args.tmodel + ":\n")
 	print(layers)
 	print("______________________\nSummary:\n\n")
 	print(model.summary())
-#plot_kernels(model, layers[0])
+#layer = layers[1]
+#print("Plotting kernel from layer \'" + layer + "\'")
+#plot_kernels(model, layer)
 
 ###########################################
 ## TRAINING/TESTING/DECONV PIPELINES     ##
@@ -191,13 +194,11 @@ if (args.trun == "training"):
 		epochs=args.epoch,
 		validation_data=datagen_val.flow(X_val, Y_val_c),
 		validation_steps=int(p*n)//args.batch,
-		#data_format="channels_last",
-		#callbacks=[EarlyStopping(min_delta=0.001, patience=10)],
+		callbacks=[EarlyStopping(min_delta=0.001, patience=10)],
 		verbose=2)
-	print("* Final Accuracy: %.3f" % hist.history["acc"][-1])
-	print("* Final (Validation) Accuracy: %.3f" % hist.history["val_acc"][-1])
-	print("* Final Loss: %.3f" % hist.history["loss"][-1])
-	print("* Final (Validation) Loss: %.3f" %hist.history["val_loss"][-1])
+	print("FINAL\t\tTRAINING\tVALIDATION")
+	print("ACCURACY\t%.3f\t\t%.3f" % (hist.history["acc"][-1], hist.history["val_acc"][-1]))
+	print("LOSS\t\t%.3f\t\t%.3f" % (hist.history["loss"][-1], hist.history["val_loss"][-1]))
 	model.save_weights('./data/weights/'+args.tmodel+'_weights.h5')
 if (args.trun == "testing"):
 	datagen_test = ImageDataGenerator(
@@ -216,23 +217,36 @@ if (args.trun == "testing"):
 		steps=np.shape(X_test)[0]//args.batch,verbose=2)
 	if (args.verbose):
 		print(model.summary())
-	print("* Predicted Labels:")
-	print([np.argmax(labels[i]) for i in range(np.shape(labels)[0])])
-	print("* Real Labels:")
-	print(Y_test.T)
-	print('* Test loss: %.2f' % scores[0])
-	print('* Test accuracy: %.2f' % scores[1])
+	print("PREDICTED\tREAL LABELS")
+	pred = [imagenet1000[np.argmax(labels[i])] for i in range(np.shape(labels)[0])]
+	real = [imagenet1000[y] for y in Y_test.T.tolist()]
+	for i in range(np.shape(labels)[0]):
+		print(pred[i] + "\t\t" + real[i])
+	print('')
+	print('* LOSS %.2f' % scores[0])
+	print('* ACCURACY %.2f' % scores[1])
 if (args.trun == "deconv"):
-	out = model.predict(X_test)
-	k = min(np.shape(out[0])[0], 5)
-	labels = [imagenet1000[np.argmax(out[0][i])] for i in range(k)]
-	print("* First "+str(k)+" Predicted Classes = \n" + str(labels))
-	print("* Associated Real Classes = \n" + str([imagenet1000[i] for i in Y_test[:k].T[0].tolist()]))
-	print(np.shape(out[0]),np.shape(out[1]),np.shape(out[2]))
+	X_test_n = np.zeros((np.shape(X_test)[0], sz, sz, 3))
+	for i in range(np.shape(X_test)[0]):
+		X_test_n[i,::] = normalize_input(X_test[i,::], sz)
+	#print_images(X_test_n, Y_test, num_classes=num_classes, nrows=2)
+	out = model.predict(X_test_n)
+	k = min(len(out), 10)
+	labels = [imagenet1000[np.argmax(out[i])] for i in range(k)]
+	real = [imagenet1000[i] for i in Y_test[:k].T.tolist()]
+	print("PREDICTED\t\tREAL LABELS")
+	for i in range(k):
+		print(labels[i] + "\t\t\t" + real[i])
+	print("...\t\t\t...")
+	## TODO
 	if (args.tdeconv == "keras"):
-		out = deconv_model.get_deconv(out[0], layers[-1])#target_layer)
+		layer_name = layers[-2]
+		i = 0
+		print("* Target layer: \'" + layer_name + "\' and image #" + str(i))
+		out = deconv_model.get_deconv(np.reshape(X_test_n[i, ::], (1, sz, sz, 3)), layer_name) # target_layer
 	else:
-		out = deconv_model.predict(out)
+		layer_name = layers[-2]
+		out = deconv_model.predict(out) # layer=layer_name
 	plt.figure(figsize=(20, 20))
 	plt.imshow(out)
 	plt.show()

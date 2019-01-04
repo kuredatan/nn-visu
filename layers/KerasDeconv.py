@@ -103,7 +103,7 @@ class DeconvNet(object):
         for lname in self.lnames[:layer_index + 1]:
             # Get layer output
             inc, out = self[lname].input, self[lname].output
-            f = K.function([inc], out)
+            f = K.function([inc], [out])
             X = f([X])
             if "conv2d" in lname:
                 d_switch[lname] = np.where(X <= 0)
@@ -181,7 +181,6 @@ class DeconvNet(object):
         :rtype: numpy array
 
         """
-
         # First make predictions to get feature maps
         self.model.predict(X)
         # Forward pass storing switches

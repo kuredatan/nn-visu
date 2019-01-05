@@ -79,7 +79,7 @@ def compute_SIFT(im):
 	return sift
 
 def get_descrs(im):
-	return np.asarray(compute_SIFT(im)[1], dtype=np.float32) 
+	return np.asarray(compute_SIFT(im), dtype=np.float32) 
 
 def get_histogram(descrs, tree, num_words):
 	N_frames = len(descrs)
@@ -225,7 +225,7 @@ def bow_comparison(fmap, images_list, name="cats", num_words=10, fmap_name="1"):
 	if (not os.path.exists(folder + name + "_histograms.dat")):
 		if (not os.path.exists(folder + name + "_descrs.dat")):
 			descrs_list = list(map(get_descrs, images_list))
-			np.savetxt(folder + name + "_descrs.dat", np.matrix(descrs_list), delimiter=',')
+			np.savetxt(folder + name + "_descrs.dat", descrs_list, delimiter=',')
 		else:
 			descrs_list = np.loadtxt(folder + name + "_descrs.dat", delimiter=',')
 		print("* Loaded descriptors")
@@ -270,12 +270,14 @@ def bow_comparison(fmap, images_list, name="cats", num_words=10, fmap_name="1"):
 	plt.show()
 
 ## Test
-if (False):
+if (True):
 	list_img = glob.glob("../data/cats/*.jpg*")
 	assert len(list_img) > 0, "Put some images in the ./data/cats folder"
 	images_list = [normalize_input(im_name, sz) for im_name in list_img]
 	fmap = normalize_input("cat7-1.jpg", sz)
 	bow_comparison(fmap, images_list)
+
+raise ValueError
 
 ###########################
 ## Correspondence points ##
@@ -293,12 +295,13 @@ def corresp_comparison(fmap, images_list, name="cats", fmap_name="1"):
 	print("* Start")
 	name = "corresp_" + name
 	if (not os.path.exists(folder + name + "_descrs.dat")):
-		descrs = list(map(get_descrs, images_list))
-		np.savetxt(folder + name + "_descrs.dat", np.matrix(descrs), delimiter=',')
-		print("* Loaded descriptors")
+		descrs_list = list(map(get_descrs, images_list))
+		np.savetxt(folder + name + "_descrs.dat", np.matrix(descrs_list), delimiter=',')
 	else:
 		descrs = np.loadtxt(folder + name + "_descrs.dat", delimiter=',')
+	print("* Loaded descriptors")
 	## Correspondance points with Euclidean distance
+	print(compute_SIFT(fmap))
 	frames_fmap, descrs_fmap = compute_SIFT(fmap)
 	frames = [compute_SIFT(images_list[i])[0] for i in range(len(descrs))]
 	N_frames1 = len(descrs_fmap)

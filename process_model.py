@@ -233,7 +233,10 @@ if (args.trun == "deconv"):
 	out = model.predict(X_test_n)
 	k = min(len(out), 10)
 	labels = [imagenet1000[np.argmax(out[i])] for i in range(k)]
-	real = [imagenet1000[i] for i in Y_test[:k].T.tolist()]
+	if (args.tdata == "CATS"):
+		real = [imagenet1000[i] for i in Y_test[:k].T.tolist()]
+	else:
+		real = [imagenet1000[i] for i in Y_test[:k].T[0].tolist()]
 	print("PREDICTED\t\tREAL LABELS")
 	for i in range(k):
 		print(labels[i] + "\t\t\t" + real[i])

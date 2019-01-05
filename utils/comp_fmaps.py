@@ -60,6 +60,20 @@ def plot_bovw(hst, title="mystery image"):
 	plt.ylabel("\'Count\'")
 	plt.show()
 
+def plot_bovw_compare(query_hist, hst, score):
+	plt.figure(figsize=(10, 4.19))
+	plt.subplot('121')
+	plt.hist(np.histogram(query_hist))
+	plt.title("Bag-of-Visual-Words with mystery image")
+	plt.xlabel("Word ID")
+	plt.ylabel("\'Count\'")
+	plt.subplot('122')
+	plt.hist(np.histogram(hst))
+	plt.title("Bag-of-Visual-Words with closest image (score = "+ str(round(score, 2))+")")
+	plt.xlabel("Word ID")
+	plt.ylabel("\'Count\'")
+	plt.show()
+
 def compute_SIFT(im):
 	sift = cyvlfeat.sift.sift(rgb2gray(im),peak_thresh=0.01)
 	return sift
@@ -71,9 +85,9 @@ def get_histogram(descrs, tree, num_words):
 	N_frames = len(descrs)
 	words_fmap = np.zeros((N_frames, 2))
 	words_fmap[:, 0] = range(N_frames)
-	words_fmap[:, 1] = [idx for lst in tree.query(descrs, k=1)[1] for idx in lst]
+	words_fmap[:, 1] = [idx for lst in tree.query(np.matrix(descrs), k=1)[1] for idx in lst]
 	query_hist=np.zeros((num_words, 1))
-	unique, counts = np.unique(words[:, 1], return_counts=True)
+	unique, counts = np.unique(words_fmap[:, 1], return_counts=True)
 	unique = list(map(int, unique))
 	query_hist[unique, 0] = counts
 	return query_hist
@@ -85,7 +99,7 @@ def preprocess_hist(query_hist, tdf_idf):
 	return query_hist
 
 def compute_score(query_hist, hist_i, num_words):
-	ps = np.dot(query_hist[:, 0], hist_i[:, 0])
+	ps = np.dot(query_hist[:, 0].T, hist_i[:, 0])
 	n1 = np.linalg.norm(query_hist)
 	n2 = np.linalg.norm(hist_i)
 	return(ps/(n1*n2))
@@ -227,46 +241,41 @@ def bow_comparison(fmap, images_list, name="cats", num_words=10, fmap_name="1"):
 		g_h = lambda d : get_histogram(d, tree, num_words)
 		histograms = list(map(g_h, descrs_list))
 		print("* Computed histograms")
-		tdf_idf = list(reduce(lambda x, y : x+y, histograms))
-		tdf_idf /= np.sum(tdf_idf)
+		h = histograms[0]
+		for i in range(1, len(histograms)):
+			h += histograms[i]
+		tdf_idf = h/np.sum(h)
 		histograms = list(map(lambda hist : preprocess_hist(hist, tdf_idf), histograms))
-		np.savetxt(folder + name + "_histograms.dat", np.matrix(histograms), delimiter=',')
+		histograms = np.matrix([ht.T[0].tolist() for ht in histograms])
+		np.savetxt(folder + name + "_histograms.dat", histograms, delimiter=',')
 		np.savetxt(folder + name + "_tdf_idf.dat", tdf_idf, delimiter=',')
 		print("* Computed TDF-IDF coefficients")
 	else:
+		descrs_list = np.loadtxt(folder + name + "_descrs.dat", delimiter=',')
 		vocab = np.loadtxt(folder + name + "_vocab.dat", delimiter=',')
-		tree = KDTree(vocab, leaf_size=2, metric=hellinger_dm)
+		tree = KDTree(vocab, leaf_size=2)#, metric=hellinger_dm)
 		g_h = lambda d : get_histogram(d, tree, num_words)
 		histograms = np.loadtxt(folder + name + "_histograms.dat", delimiter=',')
 		tdf_idf = np.loadtxt(folder + name + "_tdf_idf.dat", delimiter=',')
 	descrs = get_descrs(fmap)
-	query_hist = preprocess_hist(g_h(descrs), tdf_idf)
-	plot_bovw(query_hist)
+	query_hist = np.matrix(preprocess_hist(g_h(descrs).T[0], tdf_idf)).T
+	#plot_bovw(query_hist)
 	scores = np.zeros((1, len(descrs_list)))
-	scores[0,:] = [compute_score(query_hist, hist_i, num_words) for hist_i in histograms]
+	scores[0,:] = [compute_score(query_hist, np.matrix(hist_i).T, num_words) for hist_i in histograms]
 	np.savetxt(folder + name + "_" + fmap_name + "_scores.dat", tdf_idf, delimiter=',')
 	m = np.argmax(scores[0, :])
-	print("* Maximum score is " + str(scores[0, m]))
-	plot_bovw(histograms[m], title="closest image")
-	plot_bovw(query_hist)
-	scores_sorted_idx = np.argsort(-scores)
-	scores_sorted = scores.ravel()[scores_sorted_idx]
-	N=3
-	top_N_idx = scores_sorted_idx.ravel()[:N]
-	for i in range(N):
-		# choose subplot
-		plt.subplot(int(np.ceil(N/5)),5,i+1)
-		# plot
-		plt.imshow(images_list[i])
-		plt.axis('off')
-		plt.title('score %1.2f' % scores_sorted.ravel()[i])
+	print("* Maximum score is " + str(round(scores[0, m], 3)))
+	plot_bovw_compare(query_hist, histograms[m], scores[0, m])
+	plt.imshow(images_list[m]/255.)
+	plt.show()
 
 ## Test
-list_img = glob.glob("../data/cats/*.jpg*")
-assert len(list_img) > 0, "Put some images in the ./data/cats folder"
-images_list = [normalize_input(im_name, sz) for im_name in list_img]
-fmap = normalize_input("cat7-1.jpg", sz)
-bow_comparison(fmap, images_list)
+if (False):
+	list_img = glob.glob("../data/cats/*.jpg*")
+	assert len(list_img) > 0, "Put some images in the ./data/cats folder"
+	images_list = [normalize_input(im_name, sz) for im_name in list_img]
+	fmap = normalize_input("cat7-1.jpg", sz)
+	bow_comparison(fmap, images_list)
 
 ###########################
 ## Correspondence points ##
@@ -312,6 +321,13 @@ def corresp_comparison(fmap, images_list, name="cats", fmap_name="1"):
 	ransacs_idx = [ransac(frames_fmap,frames[i],matches[i])[1] for i in range(len(descrs))]
 	matches = [matches[i][ransacs_idx[i],:] for i in range(len(descrs))]
 	#plot_matches_ransac(fmap, images_list[0], matches)
+
+## Test
+list_img = glob.glob("../data/cats/*.jpg*")
+assert len(list_img) > 0, "Put some images in the ./data/cats folder"
+images_list = [normalize_input(im_name, sz) for im_name in list_img]
+fmap = normalize_input("cat7-1.jpg", sz)
+corresp_comparison(fmap, images_list)
 
 ###########################################
 ## Harris corner key point repeatability ##

@@ -24,7 +24,7 @@ def print_images(X, Y, num_classes=10, nrows=2):
 			continue
 		ax = fig.add_subplot(nrows, 5, 1 + tick, xticks=[], yticks=[])
 		tick += 1
-		features_idx = X[idx,:]
+		features_idx = X[idx,::]
 		img_num = np.random.randint(features_idx.shape[0])
 		im = features_idx[img_num,::]
 		ax.set_title(class_names[i])
@@ -53,14 +53,30 @@ def plot_kernels(model, layer_name):
 		raise ValueError
 	vistensor(layer[0], layer_name)
 
-def normalize_input(im, sz=224):
-	if (str(type(im)) == "<type \'str\'>"):
-		im = cv2.imread(im)
+def load_input(im_name, sz):
+	im = cv2.imread(im_name)
 	im = cv2.resize(im, (sz, sz)).astype(np.float32)
-	## Values from VGG authors
-	#im[:,:,0] -= 103.939
-	#im[:,:,1] -= 116.779
-	#im[:,:,2] -= 123.68
-	#im = (im-np.mean(im))*255./np.std(im)
-	#im = np.expand_dims(im, axis=0)
+	im = np.expand_dims(im, axis=0)
+	im /= 255.
+	return im
+
+def normalize_input(im, sz, training_means=[103.939, 116.779, 123.68], data_format="channels_last"):
+	if (str(type(im)) == "<type \'str\'>"):
+		im = load_input(im, sz)
+	im = cv2.resize(im, (sz, sz)).astype(np.float32)
+	## zero mean on each channel across the training dataset
+	if (np.max(im) <= 1):
+		im *= 255.
+	for i in range(len(training_means)):
+		if (data_format == "channels_last"):
+			im[:, :, :, i] -= training_means[i]
+		else:
+			im[:, i, :, :] -= training_means[i]
+	## 0-1 normalization
+	if (np.max(im) > 1):
+		im /= 255.
+	## standardization
+	#im = (im-np.mean(im))/np.std(im)
+	im = im-np.min(im)
+	im /= np.max(im)
 	return im

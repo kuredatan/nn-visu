@@ -12,8 +12,9 @@ from keras.optimizers import Adam, SGD
 from keras.utils import to_categorical
 from random import sample
 from copy import deepcopy
-from print_norm_utils import print_images, plot_kernels, normalize_input
+from print_norm_utils import print_images, plot_kernels, load_input, normalize_input
 from KerasDeconv import DeconvNet
+from keras.applications.vgg16 import preprocess_input
 import cPickle as pickle
 import models
 import deconv_models
@@ -60,6 +61,8 @@ parser.add_argument('--subtask', type=str, default="", metavar='S',
                     help='Sub-task for deconvolution.')
 parser.add_argument('--tdeconv', type=str, default="keras", metavar='K',
                     help='Choice of implementation for deconvolution: Mihai Dusmanu\'s (\'custom\') or DeepLearningImplementations (\'keras\').')
+parser.add_argument('--loss', type=str, default="categorical_crossentropy", metavar='O',
+                    help='Choice of loss function, among those supported by Keras.')
 args = parser.parse_args()
 
 folder = "./data/figures/"
@@ -75,11 +78,17 @@ if (args.optimizer == "SGD"):
 if (args.optimizer == "Adam"):
 	optimizer = Adam(lr=args.lr, decay=args.decay)
 
+# Load data
+(X_train, Y_train), (X_test, Y_test) = cifar10.load_data()
+
 ## Size of resized images
 if (args.tmodel == "vgg"):
-	sz = 32#224
+	sz = 224
+	preprocess_image = preprocess_input
 else:
 	sz = 32
+	training_means = [np.mean(X_train[:,:,i].astype('float32')) for i in range(3)]
+	preprocess_image = lambda x : normalize_input(x, sz, training_means)
 
 ## CREDIT: Keras training on CIFAR-10 
 ## https://gist.github.com/giuseppebonaccorso/e77e505fc7b61983f7b42dc1250f31c8
@@ -87,8 +96,6 @@ else:
 # For reproducibility
 np.random.seed(1000)
 
-# Load data
-(X_train, Y_train), (X_test, Y_test) = cifar10.load_data()
 ## CREDIT: https://github.com/tdeboissiere/DeepLearningImplementations/tree/master/DeconvNet
 if (args.trun != "training" and args.tdata == "CATS"):
 	list_img = glob.glob("./data/cats/*.jpg*")
@@ -99,7 +106,7 @@ if (args.trun != "training" and args.tdata == "CATS"):
 		list_img = list_img[:args.batch]
 		labels = (int(args.batch / len(labels)) + 2) * labels
 		labels = labels[:args.batch]
-	data = np.array([normalize_input(im_name, sz) for im_name in list_img])
+	data = np.array([load_input(im_name, sz) for im_name in list_img])
 	if (len(np.shape(data)) > 4):
 		X_test = data.reshape((np.shape(data)[0], np.shape(data)[2], np.shape(data)[3], np.shape(data)[4]))
 	else:
@@ -109,21 +116,18 @@ if (args.trun != "training" and args.tdata == "CATS"):
 if (args.trun != "training" and args.tdata == "CATS"):
 	num_classes = 1000
 else:
-	num_classes = 10
+	num_classes = 1000#10
 
 ## Preprocessing
 ## CREDIT: https://keras.io/preprocessing/image/
-X_test = X_test.astype('float32')
-X_train = X_train.astype('float32')
-X_train /= 255.0
-X_test /= 255.0
 Y_train_c = to_categorical(Y_train, num_classes)
 Y_test_c = to_categorical(Y_test, num_classes)
-Y_test_c = Y_test.astype('float32')
-Y_train_c = Y_train.astype('float32')
+Y_train_c = Y_train_c.astype('float32')
+Y_test_c = Y_test_c.astype('float32')
 
-## Decomment to print 10 random images from X_train
-#print_images(X_train, Y_train, num_classes=num_classes, nrows=2)
+## Decomment to print 5*nrows random images from X_train
+#print_images(X_train, Y_train, num_classes=10, nrows=2)
+#print_images(X_test, Y_test, num_classes=num_classes, nrows=2)
 
 ## Cut X_train into training and validation datasets
 p = 0.30
@@ -141,12 +145,12 @@ d_dmodels = {"conv": deconv_models.Conv, "vgg": deconv_models.VGG_16, "conv2": d
 ## NN model
 model = d_models[args.tmodel](pretrained=(args.trun=="testing" and args.trained), deconv=args.trun == "deconv", sz=sz)
 if (args.trun != "deconv"):
-	model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
+	model.compile(loss=args.loss, optimizer=optimizer, metrics=['accuracy'])
 
 ## "Deconvoluted" version of NN models
 if (args.tdeconv == "custom" and args.trun == "deconv"):
 	deconv_model = d_dmodels[args.tmodel](pretrained=(args.trun=="deconv" and args.trained), layer=args.layer if (args.trun=="deconv") else None)
-	deconv_model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
+	deconv_model.compile(loss=args.loss, optimizer=optimizer, metrics=['accuracy'])
 if (args.tdeconv == "keras" and args.trun == "deconv"):
 	## Or the implementation of DeconvNet in Keras
 	deconv_model = DeconvNet(model)
@@ -170,10 +174,11 @@ if (args.trun == "training"):
 	datagen_train = ImageDataGenerator(
 		## NOT to use https://github.com/keras-team/keras/issues/3477
 		#rescale=1. / 255,
-		featurewise_center=True,
-		featurewise_std_normalization=True,
+		rescale = 1.,
+		featurewise_center=False,
+		featurewise_std_normalization=False,
 		## Normalization
-		preprocessing_function=lambda x : normalize_input(x, sz),
+		preprocessing_function=preprocess_image,
 		## Data augmentation
 		rotation_range=20,
 		width_shift_range=0.2,
@@ -204,11 +209,12 @@ if (args.trun == "testing"):
 	datagen_test = ImageDataGenerator(
 		## NOT to use https://github.com/keras-team/keras/issues/3477
 		#rescale=1. / 255,
-		featurewise_center=True,
-		featurewise_std_normalization=True,
+		rescale = 1.,
+		featurewise_center=False,
+		featurewise_std_normalization=False,
 		## Normalization
 		data_format="channels_last",
-		preprocessing_function=lambda x : normalize_input(x, sz),
+		preprocessing_function=preprocess_image,
 	)
 	datagen_test.fit(X_test)
 	scores = model.evaluate_generator(datagen_test.flow(X_test, Y_test_c, batch_size=args.batch),
@@ -218,9 +224,13 @@ if (args.trun == "testing"):
 	if (args.verbose):
 		print(model.summary())
 	print("PREDICTED\tREAL LABELS")
+	k = min(np.shape(labels)[0], 10)
 	pred = [imagenet1000[np.argmax(labels[i])] for i in range(np.shape(labels)[0])]
-	real = [imagenet1000[y] for y in Y_test.T.tolist()]
-	for i in range(np.shape(labels)[0]):
+	if (args.tdata == "CATS"):
+		real = [imagenet1000[i] for i in Y_test[:k].T.tolist()]
+	else:
+		real = [imagenet1000[i] for i in Y_test[:k].T[0].tolist()]
+	for i in range(k):
 		print(pred[i] + "\t\t" + real[i])
 	print('')
 	print('* LOSS %.2f' % scores[0])
@@ -228,7 +238,7 @@ if (args.trun == "testing"):
 if (args.trun == "deconv"):
 	X_test_n = np.zeros((np.shape(X_test)[0], sz, sz, 3))
 	for i in range(np.shape(X_test)[0]):
-		X_test_n[i,::] = normalize_input(X_test[i,::], sz)
+		X_test_n[i,::] = preprocess_image(X_test[i,::])
 	#print_images(X_test_n, Y_test, num_classes=num_classes, nrows=2)
 	out = model.predict(X_test_n)
 	k = min(len(out), 10)

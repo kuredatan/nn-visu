@@ -1,22 +1,20 @@
 #coding:utf-8
 
-## Adapted from practicals from Andrea Vedaldi and Andrew Zisserman by Gul Varol and Ignacio Rocco (HMW1)
-
 import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import warnings
 from sklearn.neighbors import KDTree, DistanceMetric
-from sklearn.cluster import MiniBatchKMeans
+from sklearn.cluster import MiniBatchKMeans, KMeans
 import os
 import glob
 import cyvlfeat
-from scipy.ndimage import convolve
 from cyvlfeat.plot import plotframes
 from PIL import Image
 from scipy.misc import imresize
+import plot_matching as plm
 
-sz = 32
+sz = 100
 
 thres = 0.01
 
@@ -44,10 +42,6 @@ def load_input(im_name):
 	img.load()
 	im = np.asarray(img, dtype=np.float32)
 	im = imresize(im, (sz, sz, 3))
-	return im
-
-def rgb2gray(rgb):
-	im = np.float32(np.dot(rgb[...,:3], [0.299, 0.587, 0.114])/255.0)
 	return im
 
 def plot_bovw(hst, title="mystery image"):
@@ -90,76 +84,40 @@ def plot_image_compare(query, im):
 	plt.show()
 
 def compute_SIFT(im):
-	sift = cyvlfeat.sift.sift(rgb2gray(im),peak_thresh=thres,compute_descriptor=True)
+	sift = cyvlfeat.sift.sift(plm.rgb2grey(im),peak_thresh=thres,compute_descriptor=True)
 	return sift
 
 def get_descrs(im):
 	descrs = np.asarray(compute_SIFT(im)[1], dtype=np.float32)
 	return descrs
 
-def get_frames(im):
-	frames = np.asarray(compute_SIFT(im)[0], dtype=np.float32)
-	return frames
-
 def hellinger(u, v):
 	return np.linalg.norm(np.sqrt(u)-np.sqrt(v), 2)/float(np.sqrt(2))
 
 hellinger_dm = DistanceMetric.get_metric(hellinger)
 
-def plot_matches_corr_eucl(im1, ims, frames1, frames, matches, q):
-	## first q images
-	ims = ims[:q]
-	frames = frames[:q]
-	matches = matches[:q]
-	N_frames1 = len(frames1)
-	plt.figure(figsize=(10, 4.19))
-	for k in range(q):
-		plt.subplot('1'+str(q)+str(k))
-		# plot matches
-		plt.imshow(np.concatenate((im1,ims[k]),axis=1))
-		for i in range(N_frames1):
-			j=matches[k][i,1]
-			# plot dots at feature positions
-			plt.gca().scatter([frames1[i,0],im1.shape[1]+frames[k][j,0]], [frames1[i,1],frames[k][j,1]], s=5, c=[0,1,0])
-			# plot lines
-			plt.plot([frames1[i,0],im1.shape[1]+frames[k][j,0]],[frames1[i,1],frames[k][j,1]],linewidth=0.5)
-	plt.show()
-
-def plot_matches_lowe_nn(im1, ims, frames1, frames, filtered_matches, q):
-	## first q images
-	ims = ims[:q]
-	filtered_matches = filtered_matches[:q]
-	# plot matches
-	plt.figure(figsize=(10, 4.19))
-	for k in range(q):
-		plt.subplot('1'+str(q)+str(k))
-		plt.imshow(np.concatenate((im1,ims[k]),axis=1))
-		for idx in range(filtered_matches[k].shape[0]):
-			    i=filtered_matches[k][idx,0]
-			    j=filtered_matches[k][idx,1]
-			    # plot dots at feature positions
-			    plt.gca().scatter([frames1[i,0],im1.shape[1]+frames[k][j,0]], [frames1[i,1],frames[k][j,1]], s=5, c=[0,1,0]) 
-			    # plot lines
-			    plt.plot([frames1[i,0],im1.shape[1]+frames[k][j,0]],[frames1[i,1],frames[k][j,1]],linewidth=0.5)
-	plt.show()
-
-def plot_matches_ransac(im1, ims, frames1, frames, filtered_matches, q):
-	ims = ims[:q]
-	frames = frames[:q]
-	filtered_matches = filtered_matches[:q]
-	# plot matches filtered with RANSAC
-	plt.figure(figsize=(10, 4.19))
-	for k in range(q):
-		plt.subplot('1'+str(q)+str(k))
-		plt.imshow(np.concatenate((im1,ims[k]),axis=1))
-		for idx in range(filtered_matches[k].shape[0]):
-			i=filtered_matches[k][idx,0]
-			j=filtered_matches[k][idx,1]
-			# plot dots at feature positions
-			plt.gca().scatter([frames1[i,0],im1.shape[1]+frames[k][j,0]], [frames1[i,1],frames[k][j,1]], s=5, c=[0,1,0]) 
-			# plot lines
-			plt.plot([frames1[i,0],im1.shape[1]+frames[k][j,0]],[frames1[i,1],frames[k][j,1]],linewidth=0.5)
-	plt.show()
+def results_correspondences(inliers, list_img, fname, matches):
+	n = len(list_img)
+	contributions = np.array(list(map(lambda x: len(np.nonzero(x)[0]), inliers)))
+	## Sum of all inliers
+	total = np.sum(contributions)
+	if (total):
+		contributions = contributions/np.float32(total)
+		print("IMAGE\t\t\t\t#MATCHES\tCONTRIBUTIONS")
+		for i in range(n):
+			header = list_img[i] if (list_img) else "Image #"+str(i)
+			print(header + "\t\t" + str(int(contributions[i]*total)) + "\t\t" + str(round(contributions[i], 2)))
+		header = ""
+		if (list_img):
+			for x in list_img:
+				header += x + "\n"
+		np.savetxt(fname + "_contributions.dat", contributions, delimiter='\n', header=header)
+		m = np.argmax(contributions)
+		src, dst = matches[m]
+		return m
+	else:
+		print("No inliers!!")
+	return None
 
 ###########
 ## BoW   ##
@@ -213,7 +171,10 @@ def bow_comparison(fmap, images_list, name="cats", num_words=10, fmap_name="1", 
 		print("* Loaded descriptors")
 		if (not os.path.exists(folder + name + "_vocab.dat")):
 			descrs_mat = np.concatenate(descrs_list)
-			kmeans = MiniBatchKMeans(n_clusters=num_words, random_state=0, batch_size=6).fit(descrs_mat)
+			if (np.shape(descrs_mat)[0] > 1000):
+				kmeans = MiniBatchKMeans(n_clusters=num_words, random_state=0, batch_size=6).fit(descrs_mat)
+			else:
+				kmeans = KMeans(n_clusters=num_words, random_state=0).fit(descrs_mat)
 			vocab = kmeans.cluster_centers_
 			print("#words = ", num_words, ";shape vocab = ", np.shape(vocab))
 			np.savetxt(folder + name + "_vocab.dat", vocab, delimiter=',')
@@ -257,18 +218,15 @@ def bow_comparison(fmap, images_list, name="cats", num_words=10, fmap_name="1", 
 	plot_image_compare(fmap, images_list[m]/255.)
 	plt.show()
 
-## Test
-if (False):
-	list_img = glob.glob("../data/cats/*.jpg*")
-	assert len(list_img) > 0, "Put some images in the ./data/cats folder"
-	images_list = [load_input(im_name) for im_name in list_img]
-	fmap = load_input("cat7-1.jpg")
-	bow_comparison(fmap, images_list, list_img=list_img)
-
 ###########################
 ## Correspondence points ##
 ###########################
 
+## Distance
+#enorm = lambda d1, d2 : np.linalg.norm(d1-d2)
+enorm = lambda d1, d2 : hellinger(d1, d2)
+
+## SOURCE: practicals from Andrea Vedaldi and Andrew Zisserman by Gul Varol and Ignacio Rocco (HMW1)
 def ransac(frames1,frames2,matches,N_iters=100,dist_thresh=15):
 	# initialize
 	max_inliers=0
@@ -303,264 +261,104 @@ def ransac(frames1,frames2,matches,N_iters=100,dist_thresh=15):
 			tnf = [t_x,t_y,s,theta]
 	return (tnf,best_inliers_indices)
 
-enorm = lambda d1, d2 : np.linalg.norm(d1-d2)
-#enorm = lambda d1, d2 : hellinger(d1, d2)
-
-def get_nn_ratio(u):
-	# Get distance values of the first two nearest neighbours
-	ids = np.partition(u, 1)[0:2]
-	# Compute distance ratio
-	if (ids[1] == 0):
-		# Case unlikely to happen (i.e. the descriptors are exactly the same)
-		# means ids[0] = 0 since ids[0] is a distance and
-		# is the smallest
-		return(1)
-	return(ids[0]/ids[1])
-
 # fmap: deconvoluted feature map
 # images: list of image files to which the feature map should be compared
-def corresp_comparison(fmap, images_list, name="cats", fmap_name="1", type_c="ransac", list_img=[]):
+def corresp_comparison(fmap, images_list, name="cats", fmap_name="1", list_img=[]):
 	print("** CORRESPONDENCE POINT ANALYSIS **")
 	print("* Start")
 	name = "corresp/corresp_" + name
+	n = len(images_list)
 	if (not os.path.exists(folder + name + "_descrs0.dat")):
-		descrs_list = list(map(get_descrs, images_list))
-		for i in range(len(images_list)):
+		_list = list(map(compute_SIFT, images_list))
+		descrs_list = list(map(lambda x : x[1], _list))
+		frames = list(map(lambda x : x[0], _list))
+		for i in range(n):
 			np.savetxt(folder + name + "_descrs"+str(i)+".dat", descrs_list[i], delimiter=',')
+			np.savetxt(folder + name + "_frames"+str(i)+".dat", frames[i], delimiter=',')
 	else:
-		descrs_list = [np.loadtxt(folder + name + "_descrs"+str(i)+".dat", delimiter=',') for i in range(len(images_list))]
-	print("* Loaded descriptors")
-	if (not os.path.exists(folder + name + "_frames0.dat")):
-		frames_list = list(map(get_frames, images_list))
-		for i in range(len(images_list)):
-			np.savetxt(folder + name + "_frames"+str(i)+".dat", frames_list[i], delimiter=',')
-	else:
-		frames_list = [np.loadtxt(folder + name + "_frames"+str(i)+".dat", delimiter=',') for i in range(len(images_list))]
-	print("* Loaded frames (keypoints)")
-	## Correspondance points with Euclidean distance
-	frames_fmap, descrs_fmap = get_frames(fmap), get_descrs(fmap)
-	frames = [get_frames(images_list[i]) for i in range(len(descrs_list))]
+		descrs_list = [np.loadtxt(folder + name + "_descrs"+str(i)+".dat", delimiter=',') for i in range(n)]
+		frames = [np.loadtxt(folder + name + "_frames"+str(i)+".dat", delimiter=',') for i in range(n)]
+	print("* Loaded descriptors and keypoints")
+	## Correspondance points
+	frames_fmap, descrs_fmap = compute_SIFT(fmap)
 	N_frames1 = np.shape(descrs_fmap)[0]
-	matches=[np.zeros((N_frames1,2),dtype=np.int) for _ in range(len(descrs_list))]
+	matches=[np.zeros((N_frames1,2),dtype=np.int) for _ in range(n)]
+	## Return index of closest descriptors in terms of distance enorm for each fmap descriptor d
 	build_arr = lambda d, d_list : np.array([enorm(d, d_list[k, :]) for k in range(np.shape(d_list)[0])])
-	for i in range(len(descrs_list)):
+	inliers = []
+	nu = np.shape(descrs_fmap)[0]
+	for i in range(n):
 		matches[i][:,0]=range(N_frames1)
-		matches[i][:,1]=[np.argmin(build_arr(descrs_fmap[j, :], descrs_list[i])) for j in range(np.shape(descrs_fmap)[0])]
-	if (type_c == "eucl"):
-		plot_matches_corr_eucl(fmap, images_list, frames_fmap, frames, matches, 3)
-		filtered_matches = [m for m in matches]
-	print("* Performed simple Euclidean comparison")
-	## Lowe's NN criterium
-	if (type_c == "lowe"):
-		ratio=[np.zeros((N_frames1,1),dtype=np.int) for _ in range(len(descrs_list))]
-		NN_threshold=0.8
-		filtered_matches = []
-		for i in range(len(descrs_list)):
-			ratio[i][:,0]=[get_nn_ratio(build_arr(descrs_fmap[j, :], descrs_list[i])) for j in range(len(descrs_fmap))]
-			filtered_indices = np.flatnonzero(ratio[i]<NN_threshold)
-			filtered_matches.append(matches[i][filtered_indices,:])
-		plot_matches_lowe_nn(fmap, images_list, frames_fmap, frames, filtered_matches, 3)
-		print("* Applied Lowe's Nearest Neighbour Criterium")
-	## Ransac
-	if (type_c == "ransac"):
-		ransacs_idx = [ransac(frames_fmap,frames[i],matches[i])[1] for i in range(len(descrs_list))]
-		filtered_matches = [matches[i][ransacs_idx[i],:] for i in range(len(descrs_list))]
-		plot_matches_ransac(fmap, images_list, frames_fmap, frames, filtered_matches, 3)
-		print("* Applied RANSAC to filter matches")
-	print("IMAGE\t\t\t\t#MATCHES\tCONTRIBUTION")
-	total = sum(map(len, filtered_matches))
-	if (total):
-		contributions = []
-		for i in range(len(images_list)):
-			header = list_img[i] if (list_img) else "Image #"+str(i)
-			contrib = len(filtered_matches[i])/float(total)
-			contributions.append(contrib)
-			print(header + "\t\t" + str(len(filtered_matches[i])) + "\t\t" + str(round(contrib, 2)))
-		contributions = np.array(contributions)
-		header = ""
-		if (list_img):
-			for x in list_img:
-				header += x + "\n"
-		np.savetxt(folder + name + "_" + fmap_name + "_contributions.dat", contributions, delimiter='\n', header=header)
-		plot_image_compare(fmap, images_list[np.argmax(contributions)])
-
-## Test
-if (False):
-	list_img = glob.glob("../data/cats/*.jpg*")
-	assert len(list_img) > 0, "Put some images in the ./data/cats folder"
-	images_list = [load_input(im_name) for im_name in list_img]
-	fmap = load_input("cat7-1.jpg")
-	corresp_comparison(fmap, images_list, list_img=list_img)
+		matches[i][:,1]=[np.argmin(build_arr(descrs_fmap[j, :], descrs_list[i])) for j in range(nu)]
+	for i in range(n):
+		# robustly estimate affine transform model with RANSAC
+		ransacs_idx = [ransac(frames_fmap,frames[i],matches[i])[1] for i in range(n)]
+		inliers = [matches[i][ransacs_idx[i],:] for i in range(n)]
+		src_dst = [[frames_fmap[inliers[i][:, 0], :2], frames[i][inliers[i][:, 1], :2]] for i in range(n)]
+	fname = folder + name + "_" + fmap_name
+	matches = src_dst
+	m = results_correspondences(inliers, list_img, fname, matches)
+	if (m):
+		from skimage.feature import plot_matches
+		fig, ax = plt.subplots(nrows=1, ncols=1)
+		plot_matches(ax, fmap, images_list[m], frames_fmap[:, :2], frames[m][:, :2], inliers[m])
+		plt.show()
 
 ###########################################
 ## Harris corner key point repeatability ##
 ###########################################
 
 ## CREDIT: "A combined corner and edge detector", Harris and Stephens, BMVC 1988
-## ~ edge/corner tracking method
-## Matching edges and corners instead of keypoints of SIFT descriptors
+## ~ corner tracking method
+## Matching corners instead of keypoints of SIFT descriptors
 ## which might be more robust
 
-## Moravec's corner detector + plot functions
-## CREDIT: adapted from https://github.com/ceroma/mc920-labs/blob/master/lab2/detectors/moravec.py
-def draw_corners(image, corners_map):
-	radius = 1
+## SOURCE: http://scikit-image.org/docs/0.5/auto_examples/plot_harris.html
+def plot_harris_points(image, filtered_coords):
+	plt.plot()
 	plt.imshow(image)
-	for corner in corners_map:
-		x, y = corner
-		if (x % 10 == 0 and y % 10 == 0):
-			print("Corner: " + str(corner))
-		for dx in range(-radius, radius + 1):
-			for dy in range(-radius, radius + 1):
-				plt.plot([x+dx], [y+dy], "r.")
+	plt.plot([p[1] for p in filtered_coords], [p[0] for p in filtered_coords],'b.')
+	plt.axis('off')
+	plt.title("Harris corner points")
 	plt.show()
-
-def get_non_zero_row(diff):
-	idx = np.where(~(diff==0).all(1))[0]
-	if (len(idx.tolist()) == 0):
-		diff = np.zeros((3, 1))
-		ff = diff
-	else:
-		idx = idx[0]
-		diff = diff[idx, :, :]
-		idx = np.where(~(diff==0).all(1))[0][0]
-		diff = diff[idx, :]
-	diff = np.asarray(diff, dtype=np.uint8)
-	return diff
-
-def draw_edges(im, edges):
-	pass
-
-## Moravec's corner detector + plot functions
-## CREDIT: adapted from https://github.com/ceroma/mc920-labs/blob/master/lab2/detectors/moravec.py
-## Adding modifications suggested in "A combined corner and edge detector", Harris and Stephens, BMVC 1988
-## Gives the so-called Harris detector
-def moravec(image, img_name='', threshold=250, sigma_square=100., k=0.05): #k in 0.04, 0.06
-	# https://github.com/hughesj919/HarrisCorner/blob/master/Corners.py
-	corners, edges = [], []
-	xy_shifts = [(1, 0), (1, 1), (0, 1), (-1, 1)]
-	## Modification #2: gaussian window
-	y_range = range(1, np.shape(image)[1]-1)
-	x_range = range(1, np.shape(image)[0]-1)
-	W = np.zeros(np.shape(image))
-	for u in x_range:
-		for v in y_range:
-			W[u, v] = np.exp(-u*u+v*v)
-	W /= 2*sigma_square
-	## Discrete gradient of I wrt x (resp. y) using Sobel filters
-	kernel_x = np.matrix([[-1, 0, 1],[-2, 0, 2],[-1, 0, 1]], dtype=np.uint8)
-	kernel_y = np.matrix([[-1, -2, -1],[0, 0, 0],[1, 2, 1]], dtype=np.uint8)
-	X, Y = [np.zeros(np.shape(image)) for _ in range(2)]
-	for i in range(3):
-		X[:,:,i] = convolve(image[:,:,i], kernel_x)
-		Y[:,:,i] = convolve(image[:,:,i], kernel_y)
-	for y in y_range:
-		for x in x_range:
-			# Look for local maxima in min(E) above threshold:
-			E = 100000
-			for shift in xy_shifts:
-				## Window
-				#W = np.zeros(np.shape(image))
-				#W[x, y, :] = 1 
-				diff = np.roll(image, -shift[1], axis=1)
-				diff = W*(np.roll(diff, -shift[0], axis=0)-image)
-				diff = get_non_zero_row(diff)
-				########################################
-				## Non-explicit weights (/!\ image in uint8)
-				#diff = image[x + shift[0], y + shift[1]]-image[x, y]
-				#u_test = image[x + shift[0], y + shift[1]]-image[x, y]
-				#if (not np.all(diff == u_test)):
-				#	raise ValueError
-				#u_test = np.dot(u_test.T, u_test)
-				#print(diff == u_test, u_test, diff)
-				#print(type(u_test), type(diff))
-				#if (u_test != diff):
-				#	raise ValueError
-				########################################
-				## Modification #1: almost isotropic responses using 
-				## expansions of the 45° shifts
-				A, B, C = [get_non_zero_row(u*W) for u in [X*X, Y*Y, X*Y]]
-				diff = A*x*x + 2*C*x*y + B*y*y
-				diff = np.dot(diff.T, diff)
-				## Modification #3: auto-correlation matrix
-				#A, B, C = list(map(np.sum, [A, B, C]))
-				#M = np.matrix([[A, C], [C, B]], dtype=np.uint8)
-				#diff = (A*B-C*C)-k*(A+B)**2
-			## Hysteresis/double thresholding
-				if diff < E:
-					E = diff
-			if E > threshold:
-				corners.append((x, y))
-				edges.append((x, y))
-			##R is positive in the corner region, negative in the edge regions,
-			##and small in Hit flat region
-	print("Processed image: " + img_name)
-	draw_corners(image, corners)
-	draw_edges(image, edges)
-	return corners, edges
 
 # fmap: deconvoluted feature map
 # images: list of image files to which the feature map should be compared
-def repeatability_harris(fmap, images_list, name="cats", fmap_name="1", list_img=[], type_c="lowe"):
-	print("** REPEATABILITY OF EDGE/CORNER DETECTOR **")
+# SOURCE: http://scikit-image.org/docs/dev/auto_examples/transform/plot_matching.html#sphx-glr-auto-examples-transform-plot-matching-py
+def repeatability_harris(fmap, images_list, name="cats", fmap_name="1", list_img=[]):
+	print("** REPEATABILITY OF CORNER DETECTOR **")
 	print("* Start")
 	name = "harris/harris_" + name
+	n = len(images_list)
 	if (not os.path.exists(folder + name + "_corners0.dat")):
-		_list = list(map(lambda i : moravec(images_list[i], list_img[i]), range(len(images_list))))
-		corners_list = [x[0] for x in _list]
-		edges_list = [x[1] for x in _list]
-		for i in range(len(images_list)):
+		corners_list = list(map(plm.extract_corners, images_list))
+		for i in range(n):
 			np.savetxt(folder + name + "_corners"+str(i)+".dat", corners_list[i], delimiter=',')
-			np.savetxt(folder + name + "_edges"+str(i)+".dat", edges_list[i], delimiter=',')
+			#plot_harris_points(images_list[i], corners_list[i])
 	else:
-		corners_list = [np.loadtxt(folder + name + "_corners"+str(i)+".dat", delimiter=',') for i in range(len(images_list))]
-	print("* Loaded corners and edges")
-	## Correspondance of edges/corners with Euclidean distance
-	corners_fmap, edges_fmap = moravec(fmap, "input image")
-	## Corner
-	## TODO Compute distance bottleneck between the two vectors/Hellinger ?
-	N_corners1 = len(corners_fmap)
-	matches=[np.zeros((N_corners1,2),dtype=np.int) for _ in range(len(corners_list))]
-	build_arr = lambda c, c_list : np.array([enorm(c, c_list[k]) for k in range(len(c_list))])
-	for i in range(len(corners_list)):
-		matches[i][:,0]=range(N_corners1)
-		matches[i][:,1]=[np.argmin(build_arr(corners_fmap[j], corners_list[i])) for j in range(len(corners_fmap))]
-	if (type_c == "eucl"):
-		#plot_matches_corr_eucl(fmap, images_list, frames_fmap, frames, matches, 3)
-		filtered_matches = [m for m in matches]
-	print("* Performed simple Euclidean comparison")
-	## Lowe's NN criterium
-	if (type_c == "lowe"):
-		ratio=[np.zeros((N_corners1,1),dtype=np.int) for _ in range(len(corners_list))]
-		NN_threshold=0.8
-		filtered_matches = []
-		for i in range(len(corners_list)):
-			ratio[i][:,0]=[get_nn_ratio(build_arr(corners_fmap[j], corners_list[i])) for j in range(len(corners_fmap))]
-			filtered_indices = np.flatnonzero(ratio[i]<NN_threshold)
-			filtered_matches.append(matches[i][filtered_indices,:])
-		#plot_matches_lowe_nn(fmap, images_list, frames_fmap, frames, filtered_matches, 3)
-		print("* Applied Lowe's Nearest Neighbour Criterium")
-	print("IMAGE\t\t\t\t#MATCHES\tCONTRIBUTION")
-	total = sum(map(len, filtered_matches))
-	if (total):
-		contributions = []
-		for i in range(len(images_list)):
-			header = list_img[i] if (list_img) else "Image #"+str(i)
-			contrib = len(filtered_matches[i])/float(total)
-			contributions.append(contrib)
-			print(header + "\t\t" + str(len(filtered_matches[i])) + "\t\t" + str(round(contrib, 2)))
-		contributions = np.array(contributions)
-		header = ""
-		if (list_img):
-			for x in list_img:
-				header += x + "\n"
-		np.savetxt(folder + name + "_" + fmap_name + "_contributions.dat", contributions, delimiter='\n', header=header)
-		plot_image_compare(fmap, images_list[np.argmax(contributions)])
+		corners_list = [np.loadtxt(folder + name + "_corners"+str(i)+".dat", delimiter=',') for i in range(n)]
+	print("* Loaded corners")
+	## Correspondance of corners
+	corners_fmap = plm.extract_corners(fmap)
+	## Using RANSAC
+	matches = [plm.find_correspondences(fmap, images_list[i], corners_fmap, corners_list[i]) for i in range(n)]
+	fname = folder + name + "_" + fmap_name
+	inliers = [m[0] for m in matches]
+	matches = [m[1:] for m in matches]
+	m = results_correspondences(inliers, list_img, fname, matches)
+	if (m):
+		plm.plot_correspondences(fmap, images_list[m], matches[m][0], matches[m][1], inliers[m])
 
-## Test
-if (True):
-	list_img = glob.glob("../data/cats/*.jpg*")
-	assert len(list_img) > 0, "Put some images in the ./data/cats folder"
-	images_list = [load_input(im_name) for im_name in list_img]
-	fmap = load_input("cat7-1.jpg")
+###################################################################
+
+## Tests
+list_img = glob.glob("../data/cats/*.jpg*")
+assert len(list_img) > 0, "Put some images in the ./data/cats folder"
+images_list = [load_input(im_name) for im_name in list_img]
+fmap = load_input("cat7-1.jpg")
+if (False):
+	bow_comparison(fmap, images_list, list_img=list_img)
+if (False):
+	corresp_comparison(fmap, images_list, list_img=list_img)
+if (False):
 	repeatability_harris(fmap, images_list, list_img=list_img)

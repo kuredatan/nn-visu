@@ -369,19 +369,20 @@ def corresp_comparison(fmap, images_list, name="cats", fmap_name="1", type_c="ra
 		print("* Applied RANSAC to filter matches")
 	print("IMAGE\t\t\t\t#MATCHES\tCONTRIBUTION")
 	total = sum(map(len, filtered_matches))
-	contributions = []
-	for i in range(len(images_list)):
-		header = list_img[i] if (list_img) else "Image #"+str(i)
-		contrib = len(filtered_matches[i])/float(total)
-		contributions.append(contrib)
-		print(header + "\t\t" + str(len(filtered_matches[i])) + "\t\t" + str(round(contrib, 2)))
-	contributions = np.array(contributions)
-	header = ""
-	if (list_img):
-		for x in list_img:
-			header += x + "\n"
-	np.savetxt(folder + name + "_" + fmap_name + "_contributions.dat", contributions, delimiter='\n', header=header)
-	plot_image_compare(fmap, images_list[np.argmax(contributions)])
+	if (total):
+		contributions = []
+		for i in range(len(images_list)):
+			header = list_img[i] if (list_img) else "Image #"+str(i)
+			contrib = len(filtered_matches[i])/float(total)
+			contributions.append(contrib)
+			print(header + "\t\t" + str(len(filtered_matches[i])) + "\t\t" + str(round(contrib, 2)))
+		contributions = np.array(contributions)
+		header = ""
+		if (list_img):
+			for x in list_img:
+				header += x + "\n"
+		np.savetxt(folder + name + "_" + fmap_name + "_contributions.dat", contributions, delimiter='\n', header=header)
+		plot_image_compare(fmap, images_list[np.argmax(contributions)])
 
 ## Test
 if (False):
@@ -427,13 +428,16 @@ def get_non_zero_row(diff):
 	diff = np.asarray(diff, dtype=np.uint8)
 	return diff
 
+def draw_edges(im, edges):
+	pass
+
 ## Moravec's corner detector + plot functions
 ## CREDIT: adapted from https://github.com/ceroma/mc920-labs/blob/master/lab2/detectors/moravec.py
 ## Adding modifications suggested in "A combined corner and edge detector", Harris and Stephens, BMVC 1988
 ## Gives the so-called Harris detector
 def moravec(image, img_name='', threshold=250, sigma_square=100., k=0.05): #k in 0.04, 0.06
 	# https://github.com/hughesj919/HarrisCorner/blob/master/Corners.py
-	corners = []
+	corners, edges = [], []
 	xy_shifts = [(1, 0), (1, 1), (0, 1), (-1, 1)]
 	## Modification #2: gaussian window
 	y_range = range(1, np.shape(image)[1]-1)
@@ -476,8 +480,8 @@ def moravec(image, img_name='', threshold=250, sigma_square=100., k=0.05): #k in
 				## Modification #1: almost isotropic responses using 
 				## expansions of the 45° shifts
 				A, B, C = [get_non_zero_row(u*W) for u in [X*X, Y*Y, X*Y]]
-				#diff = A*x*x + 2*C*x*y + B*y*y
-				#diff = np.dot(diff.T, diff)
+				diff = A*x*x + 2*C*x*y + B*y*y
+				diff = np.dot(diff.T, diff)
 				## Modification #3: auto-correlation matrix
 				#A, B, C = list(map(np.sum, [A, B, C]))
 				#M = np.matrix([[A, C], [C, B]], dtype=np.uint8)
@@ -487,76 +491,71 @@ def moravec(image, img_name='', threshold=250, sigma_square=100., k=0.05): #k in
 					E = diff
 			if E > threshold:
 				corners.append((x, y))
+				edges.append((x, y))
+			##R is positive in the corner region, negative in the edge regions,
+			##and small in Hit flat region
 	print("Processed image: " + img_name)
 	draw_corners(image, corners)
-	raise ValueError
-	return corners
+	draw_edges(image, edges)
+	return corners, edges
 
 # fmap: deconvoluted feature map
 # images: list of image files to which the feature map should be compared
-def repeatability_harris(fmap, images_list, name="cats", fmap_name="1", list_img=[]):
+def repeatability_harris(fmap, images_list, name="cats", fmap_name="1", list_img=[], type_c="lowe"):
 	print("** REPEATABILITY OF EDGE/CORNER DETECTOR **")
 	print("* Start")
 	name = "harris/harris_" + name
 	if (not os.path.exists(folder + name + "_corners0.dat")):
-		corners_list = list(map(lambda i : moravec(images_list[i], list_img[i]), range(len(images_list))))
+		_list = list(map(lambda i : moravec(images_list[i], list_img[i]), range(len(images_list))))
+		corners_list = [x[0] for x in _list]
+		edges_list = [x[1] for x in _list]
 		for i in range(len(images_list)):
 			np.savetxt(folder + name + "_corners"+str(i)+".dat", corners_list[i], delimiter=',')
+			np.savetxt(folder + name + "_edges"+str(i)+".dat", edges_list[i], delimiter=',')
 	else:
 		corners_list = [np.loadtxt(folder + name + "_corners"+str(i)+".dat", delimiter=',') for i in range(len(images_list))]
-	print("* Loaded corners")
-	if (not os.path.exists(folder + name + "_edges0.dat")):
-		edges_list = list(map(get_frames, images_list))
-		for i in range(len(images_list)):
-			np.savetxt(folder + name + "_frames"+str(i)+".dat", frames_list[i], delimiter=',')
-	else:
-		edges_list = [np.loadtxt(folder + name + "_frames"+str(i)+".dat", delimiter=',') for i in range(len(images_list))]
-	print("* Loaded frames (keypoints)")
-	## Correspondance points with Euclidean distance
-	frames_fmap, descrs_fmap = get_frames(fmap), get_descrs(fmap)
-	frames = [get_frames(images_list[i]) for i in range(len(descrs_list))]
-	N_frames1 = np.shape(descrs_fmap)[0]
-	matches=[np.zeros((N_frames1,2),dtype=np.int) for _ in range(len(descrs_list))]
-	build_arr = lambda d, d_list : np.array([enorm(d, d_list[k, :]) for k in range(np.shape(d_list)[0])])
-	for i in range(len(descrs_list)):
-		matches[i][:,0]=range(N_frames1)
-		matches[i][:,1]=[np.argmin(build_arr(descrs_fmap[j, :], descrs_list[i])) for j in range(np.shape(descrs_fmap)[0])]
+	print("* Loaded corners and edges")
+	## Correspondance of edges/corners with Euclidean distance
+	corners_fmap, edges_fmap = moravec(fmap, "input image")
+	## Corner
+	## TODO Compute distance bottleneck between the two vectors/Hellinger ?
+	N_corners1 = len(corners_fmap)
+	matches=[np.zeros((N_corners1,2),dtype=np.int) for _ in range(len(corners_list))]
+	build_arr = lambda c, c_list : np.array([enorm(c, c_list[k]) for k in range(len(c_list))])
+	for i in range(len(corners_list)):
+		matches[i][:,0]=range(N_corners1)
+		matches[i][:,1]=[np.argmin(build_arr(corners_fmap[j], corners_list[i])) for j in range(len(corners_fmap))]
 	if (type_c == "eucl"):
-		plot_matches_corr_eucl(fmap, images_list, frames_fmap, frames, matches, 3)
+		#plot_matches_corr_eucl(fmap, images_list, frames_fmap, frames, matches, 3)
 		filtered_matches = [m for m in matches]
 	print("* Performed simple Euclidean comparison")
 	## Lowe's NN criterium
 	if (type_c == "lowe"):
-		ratio=[np.zeros((N_frames1,1),dtype=np.int) for _ in range(len(descrs_list))]
+		ratio=[np.zeros((N_corners1,1),dtype=np.int) for _ in range(len(corners_list))]
 		NN_threshold=0.8
 		filtered_matches = []
-		for i in range(len(descrs_list)):
-			ratio[i][:,0]=[get_nn_ratio(build_arr(descrs_fmap[j, :], descrs_list[i])) for j in range(len(descrs_fmap))]
+		for i in range(len(corners_list)):
+			ratio[i][:,0]=[get_nn_ratio(build_arr(corners_fmap[j], corners_list[i])) for j in range(len(corners_fmap))]
 			filtered_indices = np.flatnonzero(ratio[i]<NN_threshold)
 			filtered_matches.append(matches[i][filtered_indices,:])
-		plot_matches_lowe_nn(fmap, images_list, frames_fmap, frames, filtered_matches, 3)
+		#plot_matches_lowe_nn(fmap, images_list, frames_fmap, frames, filtered_matches, 3)
 		print("* Applied Lowe's Nearest Neighbour Criterium")
-	## Ransac
-	if (type_c == "ransac"):
-		ransacs_idx = [ransac(frames_fmap,frames[i],matches[i])[1] for i in range(len(descrs_list))]
-		filtered_matches = [matches[i][ransacs_idx[i],:] for i in range(len(descrs_list))]
-		plot_matches_ransac(fmap, images_list, frames_fmap, frames, filtered_matches, 3)
-		print("* Applied RANSAC to filter matches")
 	print("IMAGE\t\t\t\t#MATCHES\tCONTRIBUTION")
 	total = sum(map(len, filtered_matches))
-	contributions = []
-	for i in range(len(images_list)):
-		header = list_img[i] if (list_img) else "Image #"+str(i)
-		contrib = len(filtered_matches[i])/float(total)
-		contributions.append(contrib)
-		print(header + "\t\t" + str(len(filtered_matches[i])) + "\t\t" + str(round(contrib, 2)))
-	contributions = np.array(contributions)
-	header = ""
-	if (list_img):
-		for x in list_img:
-			header += x + "\n"
-	np.savetxt(folder + name + "_" + fmap_name + "_contributions.dat", contributions, delimiter='\n', header=header)
-	plot_image_compare(fmap, images_list[np.argmax(contributions)])
+	if (total):
+		contributions = []
+		for i in range(len(images_list)):
+			header = list_img[i] if (list_img) else "Image #"+str(i)
+			contrib = len(filtered_matches[i])/float(total)
+			contributions.append(contrib)
+			print(header + "\t\t" + str(len(filtered_matches[i])) + "\t\t" + str(round(contrib, 2)))
+		contributions = np.array(contributions)
+		header = ""
+		if (list_img):
+			for x in list_img:
+				header += x + "\n"
+		np.savetxt(folder + name + "_" + fmap_name + "_contributions.dat", contributions, delimiter='\n', header=header)
+		plot_image_compare(fmap, images_list[np.argmax(contributions)])
 
 ## Test
 if (True):

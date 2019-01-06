@@ -27,7 +27,7 @@ def find_top9_mean_act(data, Dec, target_layer, feat_map, batch_size=32):
 
     # Theano function to get the layer output
     T_in, T_out = Dec[Dec.model.layers[0].name].input, Dec[target_layer].output
-    get_activation = K.function([T_in], T_out)
+    get_activation = K.function([T_in], [T_out])
 
     list_max = []
     # Loop over batches and store the max activation value for each
@@ -37,7 +37,9 @@ def find_top9_mean_act(data, Dec, target_layer, feat_map, batch_size=32):
                          (nbatch + 1, len(range(data.shape[0] / batch_size))))
         sys.stdout.flush()
         X = data[nbatch * batch_size: (nbatch + 1) * batch_size]
+	X = X.transpose(0, 3, 2, 1)
         Dec.model.predict(X)
+	print(feat_map)
         X_activ = get_activation([X])[:, feat_map, :, :]
         X_sum = np.sum(X_activ, axis=(1,2))
         list_max += X_sum.tolist()

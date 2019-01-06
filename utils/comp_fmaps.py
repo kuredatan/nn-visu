@@ -91,8 +91,10 @@ def get_descrs(im):
 	descrs = np.asarray(compute_SIFT(im)[1], dtype=np.float32)
 	return descrs
 
+## "Three things everyone should know to improve object retrieval" Arandjelovic, Zisserman
 def hellinger(u, v):
-	return np.linalg.norm(np.sqrt(u)-np.sqrt(v), 2)/float(np.sqrt(2))
+	u, v = [np.linalg.norm(x, 1) for x in [u, v]]
+	return np.sum(np.sqrt(np.multiply(u, v)))
 
 hellinger_dm = DistanceMetric.get_metric(hellinger)
 
@@ -142,17 +144,29 @@ def get_histogram(descrs, tree, num_words):
 	return query_hist
 
 def preprocess_hist(query_hist, tdf_idf):
-	for i in range(np.shape(query_hist)[0]):
-		query_hist[i, 0] *= tdf_idf[i, 0]
+	for i in range(max(np.shape(query_hist))):
+		query_hist[i] *= tdf_idf[i]
 	query_hist = np.sqrt(query_hist)
 	query_hist /= np.linalg.norm(query_hist)
 	return query_hist
 
 def compute_score(query_hist, hist_i, num_words):
-	ps = query_hist*hist_i.T
+	ps = np.dot(query_hist.T,hist_i)
 	n1 = np.linalg.norm(query_hist)
 	n2 = np.linalg.norm(hist_i)
 	return(ps/(n1*n2))
+
+def compute_tdf_idf(histograms, num_words):
+	n = np.shape(histograms)[0]
+	tdf_idf = np.zeros((num_words, n))
+	## http://www.tfidf.com/
+	for i in range(num_words):
+		for j in range(n):
+			tdf = histograms[j,i]/float(np.sum(histograms[j, :]))
+			from math import log
+			idf = log(n/float(np.sum(histograms[:,i] > 0)))
+			tdf_idf[i, j] = tdf*idf
+	return tdf_idf
 
 # fmap: deconvoluted feature map
 # images: list of image files to which the feature map should be compared
@@ -185,12 +199,11 @@ def bow_comparison(fmap, images_list, name="cats", num_words=10, fmap_name="1", 
 		g_h = lambda d : get_histogram(d, tree, num_words)
 		histograms = list(map(g_h, descrs_list))
 		print("* Computed histograms")
-		h = histograms[0]
-		for i in range(1, len(histograms)):
-			h += histograms[i]
-		tdf_idf = h/np.sum(h)
-		histograms = list(map(lambda hist : np.matrix(preprocess_hist(hist, tdf_idf)).T, histograms))
-		histograms = np.concatenate(histograms)
+		n = len(descrs_list)
+		histograms = np.concatenate(tuple(map(lambda x: x.T, histograms)))
+		tdf_idf = compute_tdf_idf(histograms, num_words)
+		for i in range(n):
+			histograms[i, :] = preprocess_hist(histograms[i, :], tdf_idf[:, i])
 		np.savetxt(folder + name + "_histograms.dat", histograms, delimiter=',')
 		np.savetxt(folder + name + "_tdf_idf.dat", tdf_idf, delimiter=',')
 		print("* Computed TDF-IDF coefficients")
@@ -200,10 +213,11 @@ def bow_comparison(fmap, images_list, name="cats", num_words=10, fmap_name="1", 
 		tree = build_KDTree(vocab)
 		g_h = lambda d : get_histogram(d, tree, num_words)
 		histograms = np.loadtxt(folder + name + "_histograms.dat", delimiter=',')
-		histograms = [np.matrix(h) for h in histograms.tolist()]
-		tdf_idf = np.matrix(np.loadtxt(folder + name + "_tdf_idf.dat", delimiter=',')).T
+		tdf_idf = np.loadtxt(folder + name + "_tdf_idf.dat", delimiter=',')
 	descrs = get_descrs(fmap)
-	query_hist = np.matrix(preprocess_hist(g_h(descrs), tdf_idf)).T
+	query_hist = g_h(descrs)
+	tdf_idf = compute_tdf_idf(np.concatenate((query_hist.T, histograms)), num_words)[:,0]
+	query_hist = np.matrix(preprocess_hist(query_hist, tdf_idf))
 	#plot_bovw(query_hist)
 	scores = np.zeros((1, len(descrs_list)))
 	scores[0,:] = [compute_score(query_hist, hist_i, num_words) for hist_i in histograms]
@@ -223,8 +237,9 @@ def bow_comparison(fmap, images_list, name="cats", num_words=10, fmap_name="1", 
 ###########################
 
 ## Distance
-#enorm = lambda d1, d2 : np.linalg.norm(d1-d2)
-enorm = lambda d1, d2 : hellinger(d1, d2)
+## Comparison of SIFT descriptors
+enorm = lambda d1, d2 : np.linalg.norm(d1-d2)
+#enorm = lambda d1, d2 : hellinger(d1, d2)
 
 ## SOURCE: practicals from Andrea Vedaldi and Andrew Zisserman by Gul Varol and Ignacio Rocco (HMW1)
 def ransac(frames1,frames2,matches,N_iters=100,dist_thresh=15):

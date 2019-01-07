@@ -69,9 +69,9 @@ def normalize_input(im, sz, training_means=[103.939, 116.779, 123.68], data_form
 		im *= 255.
 	for i in range(len(training_means)):
 		if (data_format == "channels_last"):
-			im[:, :, :, i] -= training_means[i]
+			im[:, :, i] -= training_means[i]
 		else:
-			im[:, i, :, :] -= training_means[i]
+			im[i, :, :] -= training_means[i]
 	## 0-1 normalization
 	if (np.max(im) > 1):
 		im /= 255.

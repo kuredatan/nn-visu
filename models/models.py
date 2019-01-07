@@ -183,3 +183,39 @@ def Conv(pretrained=True, weights_path=None, noutputs=num_classes, deconv=False,
 
 	return model
 
+## CREDIT: Keras training on CIFAR-10 
+## https://gist.github.com/giuseppebonaccorso/e77e505fc7b61983f7b42dc1250f31c8
+def Vonc(pretrained=True, weights_path=None, noutputs=num_classes, deconv=False, sz=32):
+	if (pretrained):
+		weights_path = './data/weights/vonc_weights.h5'
+
+	inp = Input(shape = (sz, sz, 3))
+	x = inp
+
+	x = Conv2D(32, (3, 3), activation='relu', name="block1_conv1")(x)
+	x = Conv2D(64, (3, 3), activation='relu', name="block1_conv2")(x)
+	x, pos1 = MaxPooling2D(pool_size=2, strides=2, name="pool1")(x)
+	x = Dropout(0.25)(x)
+
+	x = Conv2D(128, (3, 3), activation='relu', name="block2_conv1")(x)
+	x, pos2 = MaxPooling2D(pool_size=2, strides=2, name="pool2")(x)
+	x = Conv2D(128, (3, 3), activation='relu', name="block2_conv2")(x)
+	x, pos3 = MaxPooling2D(pool_size=2, strides=2, name="pool3")(x)
+	x = Dropout(0.25)(x)
+
+	x = Flatten()(x)
+	x = Dense(1024,activation='relu',name="dense1")(x)
+	x = Dropout(0.25)(x)
+	x = Dense(noutputs, activation='softmax', name="dense2")(x)
+
+	if (deconv):
+		outputs = [x, pos1, pos2, pos3]
+	else:
+		outputs = [x]
+
+	model = Model(inputs = inp, outputs = outputs)
+
+	if weights_path:
+		model.load_weights(weights_path, by_name=True)
+
+	return model

@@ -65,6 +65,7 @@ def VGG_16(pretrained=True, weights_path=None, noutputs=num_classes, layer=None)
 	model = Model(inputs = [inp, pos1, pos2, pos3, pos4, pos5], outputs = x)
 
 	if weights_path:
+		print("* Loaded weights!")
 		model.load_weights(weights_path, by_name = True)
 
 	return model
@@ -90,6 +91,7 @@ def Conv2(pretrained=True, weights_path=None, noutputs=num_classes, layer=None):
 	model = Model(inputs = [inp, pos1, pos2], outputs = x)
 
 	if weights_path:
+		print("* Loaded weights!")
 		model.load_weights(weights_path, by_name=True)
 
 	return model
@@ -120,6 +122,7 @@ def Conv(pretrained=True, weights_path=None, noutputs=num_classes, layer=None):
 	model = Model(inputs = [inp, pos1, pos2, pos3], outputs = x)
 
 	if weights_path:
+		print("* Loaded weights!")
 		model.load_weights(weights_path, by_name=True)
 
 	return model
@@ -148,6 +151,7 @@ def Vonc(pretrained=True, weights_path=None, noutputs=num_classes, deconv=False,
 	model = Model(inputs = [inp, pos1, pos2, pos3], outputs = x)
 
 	if weights_path:
+		print("* Loaded weights!")
 		model.load_weights(weights_path, by_name=True)
 
 	return model

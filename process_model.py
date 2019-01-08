@@ -8,7 +8,7 @@ import numpy as np
 from keras.callbacks import EarlyStopping
 from keras.preprocessing.image import ImageDataGenerator
 from keras.datasets import cifar10
-from keras.optimizers import Adam, SGD
+from keras.optimizers import Adam, SGD, RMSprop
 from keras.utils import to_categorical
 from random import sample
 from copy import deepcopy
@@ -27,6 +27,10 @@ from cats import dict_labels_cats
 from utils import get_deconv_images, plot_deconv, plot_max_activation, find_top9_mean_act
 from skimage.transform import rescale
 from scipy.misc import imresize
+
+## Training models
+# python2.7 process_model.py --tmodel vonc --tdata CIFAR-10 --trun training --trained 0 --epoch 250 --lr 0.01 --optimizer Adam --batch 64
+# python2.7 process_model.py --tmodel conv --tdata CIFAR-10 --trun training --trained 0 --epoch 10 --lr 0.0001 --optimizer Adam --batch 128
 
 ## CREDIT: Adapted from practicals/HMW2 from Andrea Vedaldi and Andrew Zisserman 
 ## by Gul Varol and Ignacio Rocco in PyTorch
@@ -79,12 +83,14 @@ if (args.optimizer == "SGD"):
 	optimizer = SGD(lr = args.lr, decay=args.decay, momentum=args.momentum, nesterov=True)
 if (args.optimizer == "Adam"):
 	optimizer = Adam(lr=args.lr, decay=args.decay)
+if (args.optimizer == "rmsprop"):
+	optimizer = RMSprop(lr=args.lr)
 
 # Load data
 (X_train, Y_train), (X_test, Y_test) = cifar10.load_data()
 
 ## Preprocessing/Size of resized images
-def aux_process_input(x, sz):
+def aux_process_input(x, sz, training_means):
 	n = np.shape(x)[0]
 	images = []
 	for i in range(n):
@@ -99,18 +105,17 @@ def resize(im, shape):
 	res = np.zeros(shape)
 	for j in range(a):
 		for i in range(d):
-			res[j, :, :, i] = imresize(im[j, :, :, i], (b, c))
+			res[j, :, :, i] = imresize(im[j, :, :, i], (1, b, c, 1))
 	return res
 
 if (args.tmodel == "vgg"):
 	sz = 224
-	preprocess_image = lambda x : resize(x, (np.shape(x)[0], sz, sz, 3))/255.
-	#preprocess_input(resize(x, (np.shape(x)[0], sz, sz, 3)))
+	preprocess_image = lambda x : preprocess_input(resize(x, (np.shape(x)[0], sz, sz, 3)))/255.
 else:
 	sz = 32
 	training_means = [np.mean(X_train[:,:,i].astype('float32')) for i in range(3)]
-	#preprocess_image = lambda x : aux_process_input(x, sz)
-	preprocess_image = lambda x : resize(x/255., (np.shape(x)[0], sz, sz, 3))
+	#preprocess_image = lambda x : aux_process_input(x, sz, training_means)
+	preprocess_image = lambda x : resize(x, (np.shape(x)[0], sz, sz, 3))/255.
 
 ## CREDIT: Keras training on CIFAR-10 
 ## https://gist.github.com/giuseppebonaccorso/e77e505fc7b61983f7b42dc1250f31c8
@@ -184,6 +189,7 @@ if (args.verbose == 1):
 	print(layers)
 	print("______________________\nSummary:\n\n")
 	print(model.summary())
+
 #layer = layers[1]
 #print("Plotting kernel from layer \'" + layer + "\'")
 #plot_kernels(model, layer)
@@ -192,11 +198,32 @@ if (args.verbose == 1):
 ## TRAINING/TESTING/DECONV PIPELINES     ##
 ###########################################
 
+## datagen_test, X_test, Y_test_c, Y_test, args.batch
+def run_nn(datagen, X, Y_c, Y, batch_size):
+	datagen.fit(X)
+	labels = []
+	batch = 0
+	n = np.shape(X)[0]
+	for x_batch, y_batch in datagen.flow(X, Y_c, batch_size=batch_size):
+		predictions = model.predict(x_batch, batch_size, verbose=1)
+		pred_ = [np.argmax(predictions[i, :]) for i in range(len(predictions))]
+		labels += pred_
+		if batch >= n / batch_size:
+			break
+		else:
+			batch += 1
+		Y_batch = np.array([np.argmax(y_batch[i, :]) for i in range(len(predictions))])
+		acc = np.array(pred_)==Y_batch
+		print([imagenet1000[i] for i in pred_])
+		print([imagenet1000[i] for i in Y_batch.tolist()])
+		acc = np.sum(acc)/len(predictions)
+		print(str(batch_size*batch) + "/" + str(n) + ": acc = " + str(acc))
+	return labels
+
 if (args.trun == "training"):
 	datagen_train = ImageDataGenerator(
 		## NOT to use https://github.com/keras-team/keras/issues/3477
-		#rescale=1. / 255,
-		#rescale = 1./255.,
+		rescale = 1./255.,
 		featurewise_center=True,
 		featurewise_std_normalization=True,
 		## Normalization
@@ -252,6 +279,10 @@ if (args.trun == "training"):
 	print("LOSS\t\t%.3f\t\t%.3f" % (loss, loss_val))
 	model.save_weights('./data/weights/'+args.tmodel+'_weights.h5')
 if (args.trun == "testing"):
+	k = 10
+	X_test = X_test[:k, :, :, :]
+	Y_test_c = Y_test_c[:k, :]
+	Y_test = Y_test[:k]
 	datagen_test = ImageDataGenerator(
 		## NOT to use https://github.com/keras-team/keras/issues/3477
 		#rescale=1. / 255,
@@ -260,7 +291,7 @@ if (args.trun == "testing"):
 		featurewise_std_normalization=False,
 		## Normalization
 		data_format="channels_last",
-	#	preprocessing_function=preprocess_image,
+		#preprocessing_function=preprocess_image,
 	)
 	#datagen_test.fit(X_test)
 	#scores = model.evaluate_generator(datagen_test.flow(X_test, Y_test_c, batch_size=args.batch),
@@ -273,26 +304,32 @@ if (args.trun == "testing"):
 	#scores = model.evaluate(X_test_n, Y_test_c, verbose=1)
 	labels = []
 	batch = 0
-	n = np.shape(X_train)[0]
+	n = np.shape(X_test)[0]
 	for x_batch, y_batch in datagen_test.flow(X_test, Y_test_c, batch_size=args.batch):
 		x_batch = preprocess_image(x_batch)
 		#import matplotlib.pyplot as plt
 		#plt.imshow(x_batch[0, :, :, :])
 		#plt.show()
 		predictions = model.predict(x_batch, args.batch, verbose=1)
-		labels += [np.argmax(predictions[i, :]) for i in range(args.batch)]
-		scores = model.evaluate(x_batch, y_batch, verbose=0)
+		lbl = [np.argmax(predictions[i, :]) for i in range(len(predictions))]
+		labels += lbl
+		#scores = model.evaluate(x_batch, y_batch, verbose=0)
 		if batch >= n / args.batch:
 			break
 		else:
 			batch += 1
-		print(str(args.batch*batch) + "/" + str(n) + ": acc = " + str(scores[-1]))
+		Y_batch = np.array([np.argmax(y_batch[i, :]) for i in range(len(predictions))])
+		acc = np.array(lbl)==Y_batch
+		print([imagenet1000[i] for i in lbl])
+		print([imagenet1000[i] for i in Y_batch.tolist()])
+		acc = np.sum(acc)/len(predictions)
+		print(str(args.batch*batch) + "/" + str(n) + ": acc = " + str(acc))
 	labels = np.array(labels)
-	loss, acc = np.nan, np.sum(labels == Y_test)/float(n)
+	loss, acc = -1, np.sum(labels == Y_test)/float(n)
 	if (args.verbose):
 		print(model.summary())
 	k = min(np.shape(labels)[0], 10)
-	pred = [imagenet1000[np.argmax(labels[i])] for i in range(np.shape(labels)[0])]
+	pred = [imagenet1000[labels[i]] for i in range(np.shape(labels)[0])]
 	if (args.tdata == "CATS"):
 		real = [imagenet1000[i] for i in Y_test[:k].T.tolist()]
 	else:
@@ -301,8 +338,8 @@ if (args.trun == "testing"):
 	for i in range(k):
 		print(pred[i] + "\t\t" + real[i])
 	print('')
-	print('* LOSS %.2f' % scores[0])
-	print('* ACCURACY %.2f' % scores[1])
+	print('* LOSS %.2f' % loss)
+	print('* ACCURACY %.2f' % acc)
 if (args.trun == "deconv"):
 	#X_test_n = np.zeros((np.shape(X_test)[0], sz, sz, 3))
 	#for i in range(np.shape(X_test)[0]):

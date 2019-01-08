@@ -1,0 +1,170 @@
+\documentclass[10pt,twocolumn,letterpaper]{article}
+
+\usepackage{cvpr}
+\usepackage{times}
+\usepackage{epsfig}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{amssymb}
+
+% Include other packages here, before hyperref.
+
+% If you comment hyperref and then uncomment it, you should delete
+% egpaper.aux before re-running latex.  (Or just hit 'q' on the first latex
+% run, let it finish, and you should be clear).
+\usepackage[breaklinks=true,bookmarks=false]{hyperref}
+
+\cvprfinalcopy % *** Uncomment this line for the final submission
+
+\def\cvprPaperID{****} % *** Enter the CVPR Paper ID here
+\def\httilde{\mbox{\tt\raisebox{-.5ex}{\symbol{126}}}}
+
+% Pages are numbered in submission mode, and unnumbered in camera-ready
+\ifcvprfinal\pagestyle{empty}\fi
+\setcounter{page}{4321}
+\begin{document}
+
+%%%%%%%%% TITLE
+\title{Visualizing and Understanding Convolutional Networks}
+
+% 3-page double-column report
+\date{January $21^{\text{st}}$, $2019$}
+\author{Cl\'{e}mence R\'{e}da\\
+\'{E}cole Normale Sup\'{e}rieure Paris-Saclay\\
+61, avenue du Pr\'{e}sident Wilson, 94230 Cachan\\
+{\tt\small creda@ens-paris-saclay.fr}
+% For a paper whose authors are all at the same institution,
+% omit the following lines up until the closing ``}''.
+% Additional authors and addresses can be added with ``\and'',
+% just like the second author.
+% To save space, use either the email address or home page, not both
+\and XiaoQi Xu\\
+}
+
+\maketitle
+%\thispagestyle{empty}
+
+%%%%%%%%% ABSTRACT
+\begin{abstract}
+We want to design our own CNN for image classification, and to be able to justify its architecture and its filters by visualizing the feature maps and filters. Unfortunately, for now, the design of a CNN relies on a set of tricks and somehow "black magic", and there is currently no well-spread standardized recipe for pretraining network analysis.
+\end{abstract}
+
+%%%%%%%%% BODY TEXT
+\section{Introduction}
+
+%TODO
+
+%-------------------------------------------------------------------------
+\subsection{Method}
+
+%TODO
+Cl\'{e}mence R\'{e}da will mainly focus on understanding neural networks, by designing experiments to observe the behaviour of neural networks (ours and \cite{simonyan2014very} of the state-of-the-art) in different relevant situations related to image classification using the visualization of the filters and feature maps. Xiaoqi Xu will focus
+on improving architecture of our own CNN by visualizing the feature maps and filters to find better parameters, and
+doing an ablation study on the CNN to see the function of each layer.
+
+To keep simple and easy to analyze, we will start with an implementation of a five layer CNN with at most 64 filters in one convolutional layer. The architecture is standard: each convolutional layer consists of convolution, rectified linear function and max pooling; the top layer is fully connected and the final layer is a softmax classifier. 
+In order to visualize the filters and activation maps, we will use the  
+Deconvnet method suggested by \cite{zeiler2014visualizing}: related code is already available at \url{https://github.com/InFoCusp/tf_cnnvis/}. We will plug this 'inversion' network to each filter of the considered network, and extract feature images for which we will perform further analysis.
+
+CIFAR-10 dataset will be used. We have chosen to focus on the design  
+of meaningful experiments rather than on comparison of results between  
+different kinds of datasets, because of the time limit. We will not  
+preprocess the input data any further, except for data augmentation in  
+architecture selection.
+
+We will first try to reproduce the results described in \cite{zeiler2014visualizing} on occlusion. Then, we will check the influence of lightning changes, intraclass variance, and scale/viewpoint changes (using about 5-10 hand-picked images in CIFAR  
+for each test) on training and testing activation maps. We will try to answer the following questions: (in testing phase) which part of the  
+object is activated? Does the zone of highest activation delimit the  
+contours of the object? Does the network succeed in localizing the  
+object? What is the evolution of its testing accuracy depending on the  
+different changes performed above? - for instance, how bad can it  
+perform when the lightning hue increases, even when it has been  
+trained with augmented images ? (In training phase, only for our  
+network, since it is smaller thus easier to analyze) How does the  
+training NN "integrates" the new input image in the images extracted  
+from filters? An idea to quantify the "amount of the input image used  
+to train the filters" is as follows: we will focus on one object  
+class and one layer of the network, keep the original filter image  
+extracted before training, train the network with a batch of 64-128  
+images from the considered class, extract SIFT descriptors from all  
+images (including "filter" images), and perform a Bag-of-Words  
+analysis: extracting visual  (by performing K-means on SIFT descriptors), compute histograms from the SIFT  
+descriptor of each image, and compute a distance score between  
+histograms to see how each image influenced the filter. One can also  
+check how correspondence point matching performs when applied to  
+filter image and one of the input images. 
+
+It is generally better for convergence to have the input images preprocessed in some way. Most networks use one of the following:
+
+- zero mean on each channel across the training dataset (i.e. simply subtract the means of each channel)
+
+- 0 - 1 normalization (i.e. divide by 255) followed by standardization (i.e. zero mean, unit std)
+
+The null hypothesis is that the filters of the network are (once "deconvoluted") a superposition of increasing (with respect to the filter depth) higher-order features from every training image. The training aims then at fine-tuning the parameters for the feature extraction for each filter.
+
+- The L2 distance is less adequate for histograms than some other distances (such as Hellinger). This can be used to improve both SIFT descriptors and your proposed BoW comparison - see Section 3 on RootSIFT from "Three things everyone should know to improve object retrieval", Arandjelovic and Zisserman, CVPR 2012.
+
+- I am not sure how coherent SIFT features would be between the input image and the feature maps. In case your proposal doesn't work, you might want to look at a simpler analysis. For instance, you can study the repeatability of Harris Corner keypoints (see "A combined corner and edge detector", Harris and Stephens, BMVC 1988).
+
+\subsection{Results}
+
+%TODO
+
+\subsection{Conclusion}
+
+%The references section will not be included in the page count, and there is no limit on the length of the references section. 
+
+%-------------------------------------------------------------------------
+
+\begin{figure}[t]
+\begin{center}
+\fbox{\rule{0pt}{2in} \rule{0.9\linewidth}{0pt}}
+   %\includegraphics[width=0.8\linewidth]{egfigure.eps}
+\end{center}
+   \caption{Example of caption.  It is set in Roman so that mathematics
+   (always set in Roman: $B \sin A = A \sin B$) may be included without an
+   ugly clash.}
+\label{fig:long}
+\label{fig:onecol}
+\end{figure}
+
+\subsection{Miscellaneous}
+
+\noindent
+Compare the following:\\
+\begin{tabular}{ll}
+ \verb'$conf_a$' &  $conf_a$ \\
+ \verb'$\mathit{conf}_a$' & $\mathit{conf}_a$
+\end{tabular}\\
+See The \TeX book, p165.
+
+%The space after \eg, meaning ``for example'', should not be a
+%sentence-ending space. So \eg is correct, {\em e.g.} is not.  The provided
+%\verb'\eg' macro takes care of this.
+
+%When citing a multi-author paper, you may save space by using ``et alia'', shortened to ``\etal'' (not ``{\em et.\ al.}'' as ``{\em et}'' is a complete word.) However, use it only when there are three or more authors.  Thus, the following is correct: ``  Frobnication has been trendy lately.
+%   It was introduced by Alpher~\cite{Alpher02}, and subsequently developed by
+%   Alpher and Fotheringham-Smythe~\cite{Alpher03}, and Alpher \etal~\cite{Alpher04}.''
+%This is incorrect: ``... subsequently developed by Alpher \etal~\cite{Alpher03} ...''
+%because reference~\cite{Alpher03} has just two authors.  If you use the
+%\verb'\etal' macro provided, then you need not worry about double periods
+%when used at the end of a sentence as in Alpher \etal.
+
+%For this citation style, keep multiple citations in numerical (not
+%chronological) order, so prefer \cite{Alpher03,Alpher02,Authors14} to
+%\cite{Alpher02,Alpher03,Authors14}.
+
+%\begin{figure*}
+%\begin{center}
+%\fbox{\rule{0pt}{2in} \rule{.9\linewidth}{0pt}}
+%\end{center}
+%   \caption{Example of a short caption, which should be centered.}
+%\label{fig:short}
+%\end{figure*}
+
+{\small
+\bibliographystyle{ieee}
+\bibliography{egbib}
+}
+
+\end{document}

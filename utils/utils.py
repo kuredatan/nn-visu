@@ -33,21 +33,20 @@ def find_top9_mean_act(data, Dec, target_layer, feat_map, batch_size=32):
     # Loop over batches and store the max activation value for each
     # image in data for the target layer and target feature map
     for nbatch in range(data.shape[0] / batch_size):
-        sys.stdout.write("\rProcessing batch %s/%s" %
+        sys.stdout.write("\rProcessing batch %s/%s\n" %
                          (nbatch + 1, len(range(data.shape[0] / batch_size))))
         sys.stdout.flush()
         X = data[nbatch * batch_size: (nbatch + 1) * batch_size]
 	X = X.transpose(0, 3, 2, 1)
-        Dec.model.predict(X)
-	print(feat_map)
-        X_activ = get_activation([X])[:, feat_map, :, :]
+	print(np.shape(X))
+        out = Dec.model.predict(X)
+        X_activ = np.array(get_activation([X]))[:, feat_map, :, :]
         X_sum = np.sum(X_activ, axis=(1,2))
         list_max += X_sum.tolist()
     # Only keep the top 9 activations
     list_max = np.array(list_max)
     i_sort = np.argsort(list_max)
     top9 = i_sort[-9:]
-    print("")
     return top9
 
 
@@ -86,6 +85,8 @@ def get_deconv_images(d_act_path, d_deconv_path, data, Dec):
         list_feat_map = d_act[target_layer].keys()
         for feat_map in list_feat_map:
             top9 = d_act[target_layer][feat_map]
+            print(top9)
+            print(np.shape(data))
             X = data[top9]
             X_out = Dec.get_deconv(X, target_layer, feat_map=feat_map)
             key = target_layer + "_feat_" + str(feat_map)

@@ -1,10 +1,8 @@
 ## https://github.com/tdeboissiere/DeepLearningImplementations/tree/master/DeconvNet
+#coding:utf-8
 from __future__ import print_function
 import sys
 sys.path += ['./layers/', './utils/', './models/']
-from keras.models import Sequential
-from keras.layers.core import Flatten, Dense, Dropout
-from keras.layers.convolutional import Conv2D, MaxPooling2D, ZeroPadding2D
 import numpy as np
 import KerasDeconv
 import cPickle as pickle
@@ -13,83 +11,9 @@ from utils import plot_deconv
 from utils import plot_max_activation
 from utils import find_top9_mean_act
 import glob
+import models
 import cv2
 import os
-
-
-def VGG_16(weights_path=None):
-    """
-    VGG Model Keras specification
-
-    args: weights_path (str) trained weights file path
-
-    returns model (Keras model)
-    """
-
-    model = Sequential()
-    model.add(ZeroPadding2D((1, 1), input_shape=(224, 224, 3)))
-    model.add(Conv2D(64, (3, 3), activation='relu', name="block1_conv1"))
-    model.add(ZeroPadding2D((1, 1)))
-    model.add(Conv2D(64, (3, 3), activation='relu', name="block1_conv2"))
-    model.add(MaxPooling2D(pool_size=2, name="block1_mp1"))
-
-    model.add(ZeroPadding2D((1, 1)))
-    model.add(Conv2D(128, (3, 3), activation='relu', name="block2_conv1"))
-    model.add(ZeroPadding2D((1, 1)))
-    model.add(Conv2D(128, (3, 3), activation='relu', name="block2_conv2"))
-    model.add(MaxPooling2D(pool_size=2, name="block2_mp1"))
-
-    model.add(ZeroPadding2D((1, 1)))
-    model.add(Conv2D(256, (3, 3), activation='relu', name="block3_conv1"))
-    model.add(ZeroPadding2D((1, 1)))
-    model.add(Conv2D(256, (3, 3), activation='relu', name="block3_conv2"))
-    model.add(ZeroPadding2D((1, 1)))
-    model.add(Conv2D(256, (3, 3), activation='relu', name="block3_conv3"))
-    model.add(MaxPooling2D(pool_size=2, name="block3_mp1"))
-
-    model.add(ZeroPadding2D((1, 1)))
-    model.add(Conv2D(512, (3, 3), activation='relu', name="block4_conv1"))
-    model.add(ZeroPadding2D((1, 1)))
-    model.add(Conv2D(512, (3, 3), activation='relu', name="block4_conv2"))
-    model.add(ZeroPadding2D((1, 1)))
-    model.add(Conv2D(512, (3, 3), activation='relu', name="block4_conv3"))
-    model.add(MaxPooling2D(pool_size=2, name="block4_mp1"))
-
-    model.add(ZeroPadding2D((1, 1)))
-    model.add(Conv2D(512, (3, 3), activation='relu', name="block5_conv1"))
-    model.add(ZeroPadding2D((1, 1)))
-    model.add(Conv2D(512, (3, 3), activation='relu', name="block5_conv2"))
-    model.add(ZeroPadding2D((1, 1)))
-    model.add(Conv2D(512, (3, 3), activation='relu', name="block5_conv3"))
-    model.add(MaxPooling2D(pool_size=2, name="block5_mp1"))
-
-    model.add(Flatten())
-    model.add(Dense(4096, activation='relu', name="block6_fc1"))
-    model.add(Dropout(0.5))
-    model.add(Dense(4096, activation='relu', name="block6_fc2"))
-    model.add(Dropout(0.5))
-    model.add(Dense(1000, activation='softmax', name="predictions"))
-
-    if weights_path:
-        print("Loading weights...")
-        model.load_weights(weights_path)
-
-    return model
-
-
-def load_model(weights_path):
-    """
-    Load and compile VGG model
-
-    args: weights_path (str) trained weights file path
-
-    returns model (Keras model)
-    """
-
-    model = VGG_16(weights_path)
-    model.compile(optimizer="sgd", loss='categorical_crossentropy')
-    return model
-
 
 if __name__ == "__main__":
 
@@ -104,6 +28,7 @@ if __name__ == "__main__":
     ############
     # Load data
     ############
+    sz = 32
     list_img = glob.glob("./data/Img/*.jpg*")
     assert len(list_img) > 0, "Put some images in the ./data/Img folder"
     if len(list_img) < 32:
@@ -111,7 +36,7 @@ if __name__ == "__main__":
         list_img = list_img[:32]
     data = []
     for im_name in list_img:
-        im = cv2.resize(cv2.imread(im_name), (224, 224)).astype(np.float32)
+        im = cv2.resize(cv2.imread(im_name), (sz, sz)).astype(np.float32)
         im[:, :, 0] -= 103.939
         im[:, :, 1] -= 116.779
         im[:, :, 2] -= 123.68
@@ -123,17 +48,20 @@ if __name__ == "__main__":
     # Action 1) Get max activation for a secp ~/deconv_specificlection of feat maps
     ###############################################
     get_max_act = True
+    if not model:
+        model = models.Vonc(pretrained=True, deconv=True, sz=sz) 
+        #model = load_model('./data/weights/vgg16_weights.h5')
+        #model.compile(optimizer="sgd", loss='categorical_crossentropy')
+    if not Dec:
+        Dec = KerasDeconv.DeconvNet(model)
     if get_max_act:
-        if not model:
-            model = load_model('./data/weights/vgg16_weights.h5')
-        if not Dec:
-            Dec = KerasDeconv.DeconvNet(model)
+        layers = [layer.name for layer in model.layers]
+	layer = layers[4]
         d_act_path = './data/dict_top9_mean_act.pickle'
-        d_act = {"convolution2d_13": {},
-                 "convolution2d_10": {}
+        d_act = {layer: {},
                  }
-        layer="predictions"
-        for feat_map in range(10):
+        ## Filters to check
+        for feat_map in [3, 4]:
             d_act[layer][feat_map] = find_top9_mean_act(
                 data, Dec, layer, feat_map, batch_size=32)
             d_act[layer][feat_map] = find_top9_mean_act(
@@ -149,10 +77,6 @@ if __name__ == "__main__":
     if deconv_img:
         d_act_path = './data/dict_top9_mean_act.pickle'
         d_deconv_path = './data/dict_top9_deconv.pickle'
-        if not model:
-            model = load_model('./data/vgg16_weights.h5')
-        if not Dec:
-            Dec = KerasDeconv.DeconvNet(model)
         get_deconv_images(d_act_path, d_deconv_path, data, Dec)
 
     raise ValueError

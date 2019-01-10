@@ -129,14 +129,14 @@ def Conv(pretrained=True, weights_path=None, noutputs=num_classes, layer=None):
 
 ## CREDIT: Keras training on CIFAR-10 
 ## https://gist.github.com/giuseppebonaccorso/e77e505fc7b61983f7b42dc1250f31c8
-def Vonc(pretrained=True, weights_path=None, noutputs=num_classes, deconv=False, sz=32):
+def Vonc(pretrained=True, weights_path=None, noutputs=num_classes, deconv=False, sz=32, layer=None):
 	if (pretrained):
 		weights_path = './data/weights/vonc_weights.h5'
 
-	inp = Input(batch_shape = (1, sz // 4, sz // 4, 64))
+	inp = Input(batch_shape = (1, sz // 4, sz // 4, 128))
 	x = inp
 
-	pos3 = Input(batch_shape = (1, sz // 4, sz // 4, 64))
+	pos3 = Input(batch_shape = (1, sz // 4, sz // 4, 128))
 	x = UndoMaxPooling2D((1, sz, sz, 128), name="pool3")([x, pos3])
 	x = Deconv2D(128,3,padding='SAME',activation='relu', name="block2_conv2")(x)
 	pos2 = Input(batch_shape = (1, sz, sz, 64))

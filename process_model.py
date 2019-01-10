@@ -12,7 +12,7 @@ from keras.optimizers import Adam, SGD, RMSprop
 from keras.utils import to_categorical
 from random import sample
 from copy import deepcopy
-from print_norm_utils import print_images, plot_kernels, load_input, normalize_input
+from print_norm_utils import print_images, plot_kernels, load_input, normalize_input, query_yes_no
 from KerasDeconv import DeconvNet
 from keras.applications.vgg16 import preprocess_input
 import cPickle as pickle
@@ -94,13 +94,15 @@ def aux_process_input(x, sz, training_means):
 	n = np.shape(x)[0]
 	images = []
 	for i in range(n):
-		im = normalize_input(x[i, :, :, :], sz, training_means)
+		im = normalize_input(x, sz, training_means)
 		im = np.expand_dims(im, axis=0)
 		images.append(im)
 	x = np.concatenate(images, axis=0)
 	return x
 
 def resize(im, shape):
+	if (len(np.shape(im)) < 4):
+		im = np.expand_dims(im, axis=0)
 	a, b, c, d = shape
 	res = np.zeros(shape)
 	for j in range(a):
@@ -115,7 +117,7 @@ else:
 	sz = 32
 	training_means = [np.mean(X_train[:,:,i].astype('float32')) for i in range(3)]
 	#preprocess_image = lambda x : aux_process_input(x, sz, training_means)
-	preprocess_image = lambda x : resize(x, (np.shape(x)[0], sz, sz, 3))/255.
+	preprocess_image = lambda x : resize(x, (1, sz, sz, 3))/255. #(np.shape(x)[0], sz, sz, 3)
 
 ## CREDIT: Keras training on CIFAR-10 
 ## https://gist.github.com/giuseppebonaccorso/e77e505fc7b61983f7b42dc1250f31c8
@@ -162,6 +164,7 @@ n = np.shape(X_train)[0]
 in_val = sample(range(n), int(p*n))
 in_train = list(set(in_val).symmetric_difference(range(n)))
 X_val = X_train[in_val, :, :, :]
+Y_val = Y_train[in_val]
 Y_val_c = Y_train_c[in_val, :]
 X_train = X_train[in_train, :, :, :]
 Y_train_c = Y_train_c[in_train, :]
@@ -198,178 +201,109 @@ if (args.verbose == 1):
 ## TRAINING/TESTING/DECONV PIPELINES     ##
 ###########################################
 
-## datagen_test, X_test, Y_test_c, Y_test, args.batch
-def run_nn(datagen, X, Y_c, Y, batch_size):
+def run_nn(datagen, X, Y_c, Y, batch_size, training=False, verbose=True, kmin=10):
 	datagen.fit(X)
 	labels = []
-	batch = 0
 	n = np.shape(X)[0]
-	for x_batch, y_batch in datagen.flow(X, Y_c, batch_size=batch_size):
-		predictions = model.predict(x_batch, batch_size, verbose=1)
-		pred_ = [np.argmax(predictions[i, :]) for i in range(len(predictions))]
-		labels += pred_
-		if batch >= n / batch_size:
-			break
-		else:
-			batch += 1
-		Y_batch = np.array([np.argmax(y_batch[i, :]) for i in range(len(predictions))])
-		acc = np.array(pred_)==Y_batch
-		print([imagenet1000[i] for i in pred_])
-		print([imagenet1000[i] for i in Y_batch.tolist()])
-		acc = np.sum(acc)/len(predictions)
-		print(str(batch_size*batch) + "/" + str(n) + ": acc = " + str(acc))
-	return labels
+	epochs = args.epoch if (training) else 1
+	for e in range(epochs):
+		batch = 0
+		print('Epoch', e+1)
+		for x_batch, y_batch in datagen.flow(X, Y_c, batch_size=batch_size):
+			print("Batch #" + str(batch+1) + "/" + str(n/batch_size+1))
+			if (training):
+				hist = model.fit(x_batch, y_batch, verbose=1,
+					epochs=1,shuffle=True,
+					callbacks=[EarlyStopping(monitor="loss", min_delta=0.001, patience=3)])
+			else:
+				predictions = model.predict(x_batch, batch_size, verbose=1)
+				try:
+					pred_ = [np.argmax(predictions[0][i, :]) for i in range(len(predictions))]
+				except:
+					pred_ = [np.argmax(predictions[i, :]) for i in range(len(predictions))]
+				labels += pred_
+				Y_batch = np.array([np.argmax(y_batch[i, :]) for i in range(len(predictions))])
+				acc = np.array(pred_)==Y_batch
+				acc = np.sum(acc)/float(len(predictions))
+				print(str(batch_size*(batch+1)) + "/" + str(n) + ": acc = " + str(acc))
+			if batch >= n / batch_size:
+				break
+			else:
+				batch += 1
+	if (not training):
+		labels = np.array(labels)
+		if (verbose):
+			acc = np.sum(labels == Y)/float(n)
+			if (args.verbose):
+				print(model.summary())
+			k = min(np.shape(labels)[0], kmin)
+			pred = [imagenet1000[labels[i]] for i in range(np.shape(labels)[0])]
+			if (args.tdata == "CATS"):
+				real = [imagenet1000[i] for i in Y[:k].T.tolist()]
+			else:
+				real = [imagenet1000[i] for i in Y[:k].T[0].tolist()]
+			print("")
+			print("PREDICTED" + "\t"*4 + "REAL LABELS")
+			for i in range(k):
+				print(pred[i] + "\t\t" + real[i])
+			print('')
+			print('* ACCURACY %.2f' % acc)
+		return labels
+	if (verbose):
+		acc = hist.history["acc"][-1]
+		loss = hist.history["loss"][-1]
+		print("ACCURACY\t%.3f" % (acc))
+		print("LOSS\t\t%.3f" % (loss))
+	if (query_yes_no("Save weights?", default="yes")):
+		model.save_weights('./data/weights/'+args.tmodel+'_weights.h5')
+	return hist
+
+## Generator for training data
+datagen_train = ImageDataGenerator(
+	featurewise_center=False,
+	featurewise_std_normalization=False,
+	## Normalization
+	preprocessing_function=preprocess_image,
+	## Data augmentation
+	rotation_range=20,
+	width_shift_range=0.2,
+	height_shift_range=0.2,
+	horizontal_flip=True,
+	data_format="channels_last",
+)
+
+## Generator for testing data
+datagen_test = ImageDataGenerator(
+	featurewise_center=False,
+	featurewise_std_normalization=False,
+	## Normalization
+	data_format="channels_last",
+	preprocessing_function=preprocess_image,
+)
 
 if (args.trun == "training"):
-	datagen_train = ImageDataGenerator(
-		## NOT to use https://github.com/keras-team/keras/issues/3477
-		rescale = 1./255.,
-		featurewise_center=True,
-		featurewise_std_normalization=True,
-		## Normalization
-		#preprocessing_function=preprocess_image,
-		## Data augmentation
-		rotation_range=20,
-		width_shift_range=0.2,
-		height_shift_range=0.2,
-		horizontal_flip=True,
-		data_format="channels_last",
-	)
-	#datagen_val = deepcopy(datagen_train)
-	# compute quantities required for featurewise normalization
-	# (std, mean, and principal components if ZCA whitening is applied)
-	#datagen_train.fit(X_train)
-	#datagen_val.fit(X_val)
-	# fits the model on batches with real-time data augmentation:
-	#hist = model.fit_generator(datagen_train.flow(X_train, Y_train_c, batch_size=args.batch),
-	#	shuffle=True,
-	#	steps_per_epoch=int((1-p)*n)//args.batch,
-	#	epochs=args.epoch,
-	#	validation_data=datagen_val.flow(X_val, Y_val_c),
-	#	validation_steps=int(p*n)//args.batch,
-	#	#callbacks=[EarlyStopping(min_delta=0.001, patience=3)],
-	#	verbose=1)#verbose=2
-	hist = model.fit(preprocess_image(X_train), Y_train_c, batch_size=args.batch, shuffle=True, epochs=args.epoch, validation_data=(preprocess_image(X_val), Y_val_c), callbacks=[EarlyStopping(min_delta=0.001, patience=3)], verbose=1)
-	## https://keras.io/preprocessing/image/
-	#hist = []
-	#for e in range(args.epoch):
-	#	print('Epoch', e+1)
-	#	batches = 0
-	#	for x_batch, y_batch in datagen_train.flow(X_train, Y_train_c, batch_size=args.batch):
-	#		#x_batch = preprocess_image(x_batch)
-	#		hist.append(model.fit(x_batch, y_batch, verbose=1,
-	#			epochs=1,
-	#			#callbacks=[EarlyStopping(min_delta=0.001, patience=3)],
-	#		))
-	#		batches += 1
-	#		if batches >= len(X_train) / args.batch:
-	#			# we need to break the loop by hand because
-	#			# the generator loops indefinitely
-	#			break
-	acc, acc_val = hist.history["acc"][-1], hist.history["val_acc"][-1]
-	loss, loss_val = hist.history["loss"][-1], hist.history["val_loss"][-1]
-	#scores = model.evaluate(X_train/255., Y_train_c)
-	#loss, acc = scores[0], scores[1]
-	#scores = model.evaluate(X_val/255., Y_val_c)
-	#loss_val, acc_val = scores[0], scores[1]
-	#acc, acc_val = hist[-1].history["acc"][-1], scores[1]
-	#loss, loss_val = hist[-1].history["loss"][-1], scores[0]
-	print("FINAL\t\tTRAINING\tVALIDATION")
-	print("ACCURACY\t%.3f\t\t%.3f" % (acc, acc_val))
-	print("LOSS\t\t%.3f\t\t%.3f" % (loss, loss_val))
-	model.save_weights('./data/weights/'+args.tmodel+'_weights.h5')
+	hist = run_nn(datagen_train, X_train, Y_train_c, Y_train, args.batch, training=True, verbose=True)
+	labels = run_nn(datagen_train, X_val, Y_val_c, Y_val, args.batch, training=False, verbose=True)
 if (args.trun == "testing"):
-	k = 10
+	k = min(1000, np.shape(X_test)[0])
 	X_test = X_test[:k, :, :, :]
 	Y_test_c = Y_test_c[:k, :]
 	Y_test = Y_test[:k]
-	datagen_test = ImageDataGenerator(
-		## NOT to use https://github.com/keras-team/keras/issues/3477
-		#rescale=1. / 255,
-		rescale = 1.,
-		featurewise_center=False,
-		featurewise_std_normalization=False,
-		## Normalization
-		data_format="channels_last",
-		#preprocessing_function=preprocess_image,
-	)
-	#datagen_test.fit(X_test)
-	#scores = model.evaluate_generator(datagen_test.flow(X_test, Y_test_c, batch_size=args.batch),
-	#	steps=np.shape(X_test)[0]//args.batch,verbose=2)
-	#labels = model.predict_generator(datagen_test.flow(X_test, Y_test_c, batch_size=args.batch),
-	#	steps=np.shape(X_test)[0]//args.batch,verbose=2)
-	#X_test_n = preprocess_image(X_test)
-	#labels = model.predict(X_test_n, verbose=1)
-	#print(labels)
-	#scores = model.evaluate(X_test_n, Y_test_c, verbose=1)
-	labels = []
-	batch = 0
-	n = np.shape(X_test)[0]
-	for x_batch, y_batch in datagen_test.flow(X_test, Y_test_c, batch_size=args.batch):
-		x_batch = preprocess_image(x_batch)
-		#import matplotlib.pyplot as plt
-		#plt.imshow(x_batch[0, :, :, :])
-		#plt.show()
-		predictions = model.predict(x_batch, args.batch, verbose=1)
-		lbl = [np.argmax(predictions[i, :]) for i in range(len(predictions))]
-		labels += lbl
-		#scores = model.evaluate(x_batch, y_batch, verbose=0)
-		if batch >= n / args.batch:
-			break
-		else:
-			batch += 1
-		Y_batch = np.array([np.argmax(y_batch[i, :]) for i in range(len(predictions))])
-		acc = np.array(lbl)==Y_batch
-		print([imagenet1000[i] for i in lbl])
-		print([imagenet1000[i] for i in Y_batch.tolist()])
-		acc = np.sum(acc)/len(predictions)
-		print(str(args.batch*batch) + "/" + str(n) + ": acc = " + str(acc))
-	labels = np.array(labels)
-	loss, acc = -1, np.sum(labels == Y_test)/float(n)
-	if (args.verbose):
-		print(model.summary())
-	k = min(np.shape(labels)[0], 10)
-	pred = [imagenet1000[labels[i]] for i in range(np.shape(labels)[0])]
-	if (args.tdata == "CATS"):
-		real = [imagenet1000[i] for i in Y_test[:k].T.tolist()]
-	else:
-		real = [imagenet1000[i] for i in Y_test[:k].T[0].tolist()]
-	print("PREDICTED\tREAL LABELS")
-	for i in range(k):
-		print(pred[i] + "\t\t" + real[i])
-	print('')
-	print('* LOSS %.2f' % loss)
-	print('* ACCURACY %.2f' % acc)
+	labels = run_nn(datagen_test, X_test, Y_test_c, Y_test, args.batch, training=False, verbose=True)
 if (args.trun == "deconv"):
-	#X_test_n = np.zeros((np.shape(X_test)[0], sz, sz, 3))
-	#for i in range(np.shape(X_test)[0]):
-	#	X_test_n[i,::] = preprocess_image(X_test[i,::])
-	#print_images(X_test_n, Y_test, num_classes=num_classes, nrows=2)
-	#X_test_n = rescale(X_test, (np.shape(x)[0], sz, sz, 3)
-	#X_test_n = preprocess_image(X_test_n)
 	out = model.predict(X_test)
-	k = min(len(out), 10)
-	labels = [imagenet1000[np.argmax(out[i])] for i in range(k)]
-	if (args.tdata == "CATS"):
-		real = [imagenet1000[i] for i in Y_test[:k].T.tolist()]
-	else:
-		real = [imagenet1000[i] for i in Y_test[:k].T[0].tolist()]
-	print("PREDICTED\t\tREAL LABELS")
-	for i in range(k):
-		print(labels[i] + "\t\t\t" + real[i])
-	print("...\t\t\t...")
-	## TODO
 	if (args.tdeconv == "keras"):
 		layer_name = layers[-2]
 		i = 0
-		print("* Target layer: \'" + layer_name + "\' and image #" + str(i))
-		out = deconv_model.get_deconv(np.reshape(X_test_n[i, ::], (1, sz, sz, 3)), layer_name) # target_layer
+		print("* Target layer: \'" + layer_name + "\' and image #" + str(i+1))
+		out = deconv_model.get_deconv(np.reshape(X_test[i, ::], (1, sz, sz, 3)), layer_name) # target_layer
 	else:
 		layer_name = layers[-2]
 		out = deconv_model.predict(out) # layer=layer_name
 	plt.figure(figsize=(20, 20))
 	plt.imshow(out)
 	plt.show()
+	raise ValueError
 	## Save output feature map
 	#If you want to reconstruct from a single feature map / activation, you can
 	# simply set all the others to 0. (in file "models/deconv_models.py")
@@ -396,6 +330,10 @@ if (args.trun == "deconv"):
 
 ###################################################################
 ###################################################################
+
+#bow_comparison(fmap, images_list, list_img=list_img)
+#corresp_comparison(fmap, images_list, list_img=list_img)
+#repeatability_harris(fmap, images_list, list_img=list_img)
 
     ###############################################
     # Action 1) Get max activation for a secp ~/deconv_specificlection of feat maps

@@ -55,8 +55,7 @@ if __name__ == "__main__":
         #model.compile(optimizer="sgd", loss='categorical_crossentropy')
         deconv_model = deconv_models.Conv(pretrained=True)
     out = model.predict(data)
-    print(len(out))
-    print([np.shape(o) for o in out])
+    #print(model.summary())
     out = deconv_model.predict(out)
     raise ValueError
     if not Dec:

@@ -165,8 +165,8 @@ def Conv(pretrained=True, weights_path=None, noutputs=num_classes, deconv=False,
 	x = Conv2D(128,(3,3),padding='same',activation='relu', name="conv5")(x)
 	x = Dropout(0.2)(x)
 
-	x = Conv2D(128,(3,3),padding='same',activation='relu', name="conv6")(x)
-	x, pos3 = MaxPooling2D(pool_size=2, strides=2, name="pool6")(x)
+	#x = Conv2D(128,(3,3),padding='same',activation='relu', name="conv6")(x)
+	#x, pos3 = MaxPooling2D(pool_size=2, strides=2, name="pool6")(x)
 
 	#x = Flatten()(x)
 	#x = Dropout(0.2)(x)
@@ -175,7 +175,7 @@ def Conv(pretrained=True, weights_path=None, noutputs=num_classes, deconv=False,
 	#x = Dense(noutputs, activation='softmax', name="dense2")(x)
 
 	if (deconv):
-		outputs = [x, pos1, pos2, pos3]
+		outputs = [x, pos1, pos2]#, pos3]
 	else:
 		outputs = [x]
 

@@ -97,7 +97,8 @@ def query_yes_no(question, default="yes"):
 def normalize_input(im, sz, training_means=[103.939, 116.779, 123.68], data_format="channels_last"):
 	if (str(type(im)) == "<type \'str\'>"):
 		im = load_input(im, sz)
-	im = cv2.resize(im, (sz, sz)).astype(np.float32)
+	else:
+		im = cv2.resize(im, (sz, sz)).astype(np.float32)
 	## zero mean on each channel across the training dataset
 	if (np.max(im) <= 1):
 		im *= 255.

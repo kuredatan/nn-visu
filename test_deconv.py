@@ -14,6 +14,7 @@ import glob
 import models
 import cv2
 import os
+import deconv_models
 
 if __name__ == "__main__":
 
@@ -40,7 +41,7 @@ if __name__ == "__main__":
         im[:, :, 0] -= 103.939
         im[:, :, 1] -= 116.779
         im[:, :, 2] -= 123.68
-        im = im.transpose((2, 0, 1))
+        #im = im.transpose((2, 0, 1))
         data.append(im)
     data = np.array(data)
 
@@ -49,21 +50,25 @@ if __name__ == "__main__":
     ###############################################
     get_max_act = True
     if not model:
-        model = models.Vonc(pretrained=True, deconv=True, sz=sz) 
+        model = models.Conv(pretrained=True, deconv=True, sz=sz) 
         #model = load_model('./data/weights/vgg16_weights.h5')
         #model.compile(optimizer="sgd", loss='categorical_crossentropy')
+        deconv_model = deconv_models.Conv(pretrained=True)
+    out = model.predict(data)
+    print(len(out))
+    print([np.shape(o) for o in out])
+    out = deconv_model.predict(out)
+    raise ValueError
     if not Dec:
         Dec = KerasDeconv.DeconvNet(model)
     if get_max_act:
-        layers = [layer.name for layer in model.layers]
+        layers = ['block1_conv1', 'block1_conv2', 'pool1', 'block2_conv1', 'pool2', 'block2_conv2', 'pool3']
 	layer = layers[4]
         d_act_path = './data/dict_top9_mean_act.pickle'
         d_act = {layer: {},
                  }
         ## Filters to check
         for feat_map in [3, 4]:
-            d_act[layer][feat_map] = find_top9_mean_act(
-                data, Dec, layer, feat_map, batch_size=32)
             d_act[layer][feat_map] = find_top9_mean_act(
                 data, Dec, layer, feat_map, batch_size=32)
             with open(d_act_path, 'w') as f:
@@ -77,7 +82,7 @@ if __name__ == "__main__":
     if deconv_img:
         d_act_path = './data/dict_top9_mean_act.pickle'
         d_deconv_path = './data/dict_top9_deconv.pickle'
-        get_deconv_images(d_act_path, d_deconv_path, data, Dec)
+        #get_deconv_images(d_act_path, d_deconv_path, data, Dec)
 
     raise ValueError
 

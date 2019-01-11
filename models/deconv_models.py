@@ -101,24 +101,24 @@ def Conv(pretrained=True, weights_path=None, noutputs=num_classes, layer=None):
 	if (pretrained):
 		weights_path = './data/weights/conv_weights.h5'
 
-	inp = Input(batch_shape = (1, sz // 4, sz // 4, 64))
+	inp = Input(batch_shape = (1, sz // 8, sz // 8, 128))
 	x = inp
 
-	pos3 = Input(batch_shape = (1, sz // 4, sz // 4, 64))
-	x = UndoMaxPooling2D((1, sz, sz, 128), name="pool6")([x, pos3])
+	pos3 = Input(batch_shape = (1, sz // 8, sz // 8, 128))
+	x = UndoMaxPooling2D((1, sz // 4, sz // 4, 128), name="pool6")([x, pos3])
 	x = Deconv2D(128,3,padding='SAME',activation='relu', name="conv6")(x)
 	x = Deconv2D(128//2,3,padding='SAME',activation='relu', name="conv5")(x)
 
-	pos2 = Input(batch_shape = (1, sz, sz, 64))
-	x = UndoMaxPooling2D((1, sz, sz, 64), name="pool4")([x, pos2])
+	pos2 = Input(batch_shape = (1, sz // 4, sz // 4, 64))
+	x = UndoMaxPooling2D((1, sz // 4, sz // 4, 64), name="pool4")([x, pos2])
 	x = Deconv2D(64, 3, padding='SAME', activation="relu", name="conv4")(x)
 	x = Deconv2D(64//2, 3, padding='SAME', activation="relu", name="conv3")(x)
 
-	pos1 = Input(batch_shape = (1, sz, sz, 32))
-	x = UndoMaxPooling2D((1, sz, sz, 32), name="pool2")([x, pos1])
+	pos1 = Input(batch_shape = (1, sz // 4, sz // 4, 32))
+	x = UndoMaxPooling2D((1, sz // 2, sz // 2, 32), name="pool2")([x, pos1])
 	x = Deconv2D(32, 3, padding='SAME', activation="relu", name="conv2")(x)
 	x = Deconv2D(3, 3, padding='SAME', activation='relu', name="conv1")(x)
-
+	print(np.shape(x))
 	model = Model(inputs = [inp, pos1, pos2, pos3], outputs = x)
 
 	if weights_path:

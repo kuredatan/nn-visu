@@ -4,6 +4,7 @@ import keras.backend as K
 import theano as T
 import time
 import numpy as np
+import pool
 np.set_printoptions(precision=2)
 from deconv2D import Deconv2D
 from pool_unpool import UndoMaxPooling2D
@@ -100,11 +101,18 @@ class DeconvNet(object):
         # Store the max activation in switch
         d_switch = {}
         layer_index = self.lnames.index(target_layer)
-        for lname in self.lnames[:layer_index + 1]:
+        ## Remove input layers
+        ## https://github.com/keras-team/keras/issues/10372
+        ## for lname in self.lnames[:layer_index + 1]:
+        for lname in self.lnames[1:layer_index + 1]:
             # Get layer output
             inc, out = self[lname].input, self[lname].output
-            f = K.function([inc], [out])
+            if (str(type(out)) != "<type 'list'>"):
+                 out = [out]
+            f = K.function([inc], out)
             X = f([X])
+            if (len(np.shape(X)) > 3):
+            	X = np.resize(X, np.shape(X)[1:])
             if "conv2d" in lname:
                 d_switch[lname] = np.where(X <= 0)
         return d_switch
@@ -113,14 +121,19 @@ class DeconvNet(object):
         # Run deconv/maxunpooling until input pixel space
         layer_index = self.lnames.index(target_layer)
         # Get the output of the target_layer of interest
+        out = self[target_layer].output
+        if (str(type(out)) != "<type 'list'>"):
+            out = [out]
         layer_output = K.function(
-            [self[self.lnames[0]].input], self[target_layer].output)
+            [self[self.lnames[0]].input], out)
         X_outl = layer_output([X])
         # Special case for the starting layer where we may want
         # to switchoff somes maps/ activations
         print("Deconvolving %s..." % target_layer)
-        if "maxpooling2d" in target_layer:
-            X_maxunp = K.pool.max_pool_2d_same_size(
+        #if "maxpooling2d" in target_layer:
+        if "pool" in target_layer:
+            #X_maxunp = K.pool.max_pool_2d_same_size(
+            X_maxunp = pool.max_pool_2d_same_size(
                 self[target_layer].input, self[target_layer].pool_size)
             unpool_func = K.function([self[self.lnames[0]].input], X_maxunp)
             X_outl = unpool_func([X])
@@ -134,7 +147,8 @@ class DeconvNet(object):
                     m = np.max(X_outl[i, feat_map, :, :])
                     X_outl[i, feat_map, :, :] = 0
                     X_outl[i, feat_map, iw, ih] = m
-        elif "conv2d" in target_layer:
+        #elif "conv2d" in target_layer:
+        elif "conv" in target_layer:
             X_outl = self._deconv(X_outl, target_layer,
                                   d_switch, feat_map=feat_map)
         else:

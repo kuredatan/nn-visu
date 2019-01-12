@@ -58,16 +58,22 @@ if (False):
 forward_net = models.Conv(pretrained=True, deconv=True)
 backward_net = deconv_models.Conv(pretrained=True)
 
-im = normalize_input("./data/cats/cat3.jpg", sz)
+#im = load_input("./data/cats/cat1.jpg", sz)
+im = normalize_input("./data/cats/cat1.jpg", sz)
 out = forward_net.predict([im])
 print(len(out))
 print([np.shape(x) for x in out])
 out = backward_net.predict(out)
 
+## TODO
+## Get activation zones
+## Save feature maps
+## Apply methods
+
 out = np.resize(out, (sz, sz, 3))
 print(np.shape(out), np.shape(im))
 plt.subplot('121')
-plt.imshow(out*255.)
+plt.imshow(out)
 plt.subplot('122')
 plt.imshow(np.resize(im, (sz, sz, 3)))
 plt.show()

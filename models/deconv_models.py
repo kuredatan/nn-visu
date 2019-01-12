@@ -19,6 +19,7 @@ import torch
 
 sz = 32
 num_classes = 1000
+msg = "* Loaded weights! (DeconvNet)"
 
 #If you want to reconstruct from a single feature map / activation, you can
 # simply set all the others to 0.
@@ -27,7 +28,7 @@ num_classes = 1000
 # The shapes can be extracted from [model to deconvolve].summary().
 
 ## CREDIT: https://gist.github.com/baraldilorenzo/07d7802847aaad0a35d3
-def VGG_16(pretrained=True, weights_path=None, noutputs=num_classes, layer=None):
+def VGG_16(pretrained=True, weights_path=None, noutputs=num_classes, layer=None, sz=sz):
 	if (pretrained):
 		weights_path = './data/weights/vgg16_weights.h5'
 
@@ -65,13 +66,13 @@ def VGG_16(pretrained=True, weights_path=None, noutputs=num_classes, layer=None)
 	model = Model(inputs = [inp, pos1, pos2, pos3, pos4, pos5], outputs = x)
 
 	if weights_path:
-		print("* Loaded weights!")
+		print(msg)
 		model.load_weights(weights_path, by_name = True)
 
 	return model
 
 ## CREDIT: https://blog.plon.io/tutorials/cifar-10-classification-using-keras-tutorial/
-def Conv2(pretrained=True, weights_path=None, noutputs=num_classes, layer=None):
+def Conv2(pretrained=True, weights_path=None, noutputs=num_classes, layer=None, sz=sz):
 	if (pretrained):
 		weights_path = './data/weights/conv2_weights.h5'
 
@@ -91,23 +92,23 @@ def Conv2(pretrained=True, weights_path=None, noutputs=num_classes, layer=None):
 	model = Model(inputs = [inp, pos1, pos2], outputs = x)
 
 	if weights_path:
-		print("* Loaded weights!")
+		print(msg)
 		model.load_weights(weights_path, by_name=True)
 
 	return model
 
 ## CREDIT: https://blog.plon.io/tutorials/cifar-10-classification-using-keras-tutorial/
-def Conv(pretrained=True, weights_path=None, noutputs=num_classes, layer=None):
+def Conv(pretrained=True, weights_path=None, noutputs=num_classes, layer=None, sz=sz):
 	if (pretrained):
 		weights_path = './data/weights/conv_weights.h5'
 
-	#inp = Input(batch_shape = (1, sz // 8, sz // 8, 128), name="inp")
-	inp = Input(batch_shape = (1, sz // 4, sz // 4, 128), name="inp")
+	inp = Input(batch_shape = (1, sz // 8, sz // 8, 128), name="inp")
+	#inp = Input(batch_shape = (1, sz // 4, sz // 4, 128), name="inp")
 	x = inp
 
-	#pos3 = Input(batch_shape = (1, sz // 8, sz // 8, 128), name="pos3")
-	#x = UndoMaxPooling2D((1, sz // 4, sz // 4, 128), name="pool6")([x, pos3])
-	#x = Deconv2D(128,3,padding='SAME',activation='relu', name="conv6")(x)
+	pos3 = Input(batch_shape = (1, sz // 8, sz // 8, 128), name="pos3")
+	x = UndoMaxPooling2D((1, sz // 4, sz // 4, 128), name="pool6")([x, pos3])
+	x = Deconv2D(128,3,padding='SAME',activation='relu', name="conv6")(x)
 	x = Deconv2D(128//2,3,padding='SAME',activation='relu', name="conv5")(x)
 
 	pos2 = Input(batch_shape = (1, sz // 4, sz // 4, 64), name="pos2")
@@ -121,14 +122,14 @@ def Conv(pretrained=True, weights_path=None, noutputs=num_classes, layer=None):
 	model = Model(inputs = [inp, pos1, pos2], outputs= x)#, pos3], outputs = x)
 
 	if weights_path:
-		print("* Loaded weights!")
+		print(msg)
 		model.load_weights(weights_path, by_name=True)
 
 	return model
 
 ## CREDIT: Keras training on CIFAR-10 
 ## https://gist.github.com/giuseppebonaccorso/e77e505fc7b61983f7b42dc1250f31c8
-def Vonc(pretrained=True, weights_path=None, noutputs=num_classes, deconv=False, sz=32, layer=None):
+def Vonc(pretrained=True, weights_path=None, noutputs=num_classes, deconv=False, sz=sz, layer=None):
 	if (pretrained):
 		weights_path = './data/weights/vonc_weights.h5'
 
@@ -150,7 +151,7 @@ def Vonc(pretrained=True, weights_path=None, noutputs=num_classes, deconv=False,
 	model = Model(inputs = [inp, pos1, pos2, pos3], outputs = x)
 
 	if weights_path:
-		print("* Loaded weights!")
+		print(msg)
 		model.load_weights(weights_path, by_name=True)
 
 	return model

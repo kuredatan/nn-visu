@@ -16,6 +16,7 @@ from keras.backend import tf as ktf
 import torch
 
 num_classes = 1000
+msg = "* Loaded weights! (CNN)"
 
 from keras.applications.vgg16 import VGG16
 
@@ -25,7 +26,7 @@ from keras.applications.vgg16 import VGG16
 
 def VGG_16(pretrained=True, weights_path=None, noutputs=num_classes, deconv=False, sz=32):
 	if (weights_path):
-		print("* Loaded weights!")
+		print(msg)
 		weights = "imagenet"
 	else:
 		weights = None
@@ -101,7 +102,7 @@ def VGG_16_2(pretrained=True, weights_path=None, noutputs=num_classes, deconv=Fa
 	model = Model(inputs = inp, outputs = outputs)
 
 	if weights_path:
-		print("* Loaded weights!")
+		print(msg)
 		model.load_weights(weights_path, by_name = True)
 
 	return model
@@ -137,52 +138,63 @@ def Conv2(pretrained=True, weights_path=None, noutputs=num_classes, deconv=False
 	model = Model(inputs = inp, outputs = outputs)
 
 	if weights_path:
-		print("* Loaded weights!")
+		print(msg)
 		model.load_weights(weights_path, by_name=True)
 
 	return model
 
 ## CREDIT: https://blog.plon.io/tutorials/cifar-10-classification-using-keras-tutorial/
-def Conv(pretrained=True, weights_path=None, noutputs=num_classes, deconv=False, sz=32):
+def Conv(pretrained=True, weights_path=None, noutputs=num_classes, deconv=False, sz=32, layer=""):
 	if (pretrained):
 		weights_path = './data/weights/conv_weights.h5'
 
 	inp = Input(shape = (sz, sz, 3))
 	x = inp
-
 	x = Conv2D(32, (3, 3), padding='same', activation='relu', name="conv1")(x)
-	x = Dropout(0.2)(x)
-
-	x = Conv2D(32, (3, 3), padding='same', activation="relu", name="conv2")(x)
-	x, pos1 = MaxPooling2D(pool_size=2, strides=2, name="pool2")(x)
-
-	x = Conv2D(64, (3, 3), padding='same', activation="relu", name="conv3")(x)
-	x = Dropout(0.2)(x)
-
-	x = Conv2D(64, (3, 3), padding='same', activation="relu", name="conv4")(x)
-	x, pos2 = MaxPooling2D(pool_size=2, strides=2, name="pool4")(x)
-
-	x = Conv2D(128,(3,3),padding='same',activation='relu', name="conv5")(x)
-	x = Dropout(0.2)(x)
-
-	x = Conv2D(128,(3,3),padding='same',activation='relu', name="conv6")(x)
-	x, pos3 = MaxPooling2D(pool_size=2, strides=2, name="pool6")(x)
-
-	x = Flatten()(x)
-	x = Dropout(0.2)(x)
-	x = Dense(1024,activation='relu',kernel_constraint=maxnorm(3), name="dense1")(x)
-	x = Dropout(0.2)(x)
-	x = Dense(noutputs, activation='softmax', name="dense2")(x)
+	if (not layer == "conv1"):
+		x = Dropout(0.2)(x)
+		x = Conv2D(32, (3, 3), padding='same', activation="relu", name="conv2")(x)
+		if (not layer == "conv2"):
+			x, pos1 = MaxPooling2D(pool_size=2, strides=2, name="pool2")(x)
+			if (not layer == "pool2"):
+				x = Conv2D(64, (3, 3), padding='same', activation="relu", name="conv3")(x)
+				if (not layer == "conv3"):
+					x = Dropout(0.2)(x)
+					x = Conv2D(64, (3, 3), padding='same', activation="relu", name="conv4")(x)
+					if (not layer == "conv4"):
+						x, pos2 = MaxPooling2D(pool_size=2, strides=2, name="pool4")(x)
+						if (not layer == "pool4"):
+							x = Conv2D(128,(3,3),padding='same',activation='relu', name="conv5")(x)
+							if (not layer == "conv5"):
+								x = Dropout(0.2)(x)
+								x = Conv2D(128,(3,3),padding='same',activation='relu', name="conv6")(x)
+								if (not layer == "conv6"):
+									x, pos3 = MaxPooling2D(pool_size=2, strides=2, name="pool6")(x)
+									if (not layer == "pool6"):
+										x = Flatten()(x)
+										x = Dropout(0.2)(x)
+										x = Dense(1024,activation='relu',
+											kernel_constraint=maxnorm(3), name="dense1")(x)
+										if (not layer == "dense1"):
+											x = Dropout(0.2)(x)
+											x = Dense(noutputs, activation='softmax', name="dense2")(x)
 
 	if (deconv):
-		outputs = [x, pos1, pos2]#, pos3]
+		outputs = [x]
+		print(np.shape(x))
+		if (not (layer in ['conv1', 'conv2'])):
+			outputs.append(pos1)
+			if (not (layer in ['pool2', 'conv3', 'conv4'])):
+				outputs.append(pos2)
+				if (not (layer in ['pool4', 'conv5', 'conv6'])):
+					outputs.append(pos3)
 	else:
 		outputs = [x]
 
 	model = Model(inputs = inp, outputs = outputs)
 
 	if weights_path:
-		print("* Loaded weights!")
+		print(msg)
 		model.load_weights(weights_path, by_name=True)
 
 	return model
@@ -220,7 +232,7 @@ def Vonc(pretrained=True, weights_path=None, noutputs=num_classes, deconv=False,
 	model = Model(inputs = inp, outputs = outputs)
 
 	if weights_path:
-		print("* Loaded weights!")
+		print(msg)
 		model.load_weights(weights_path, by_name=True)
 
 	return model

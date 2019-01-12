@@ -31,7 +31,7 @@ import matplotlib.pyplot as plt
 # python2.7 process_model.py --tmodel vonc --tdata CIFAR-10 --trun training --trained 0 --epoch 250 --lr 0.01 --optimizer Adam --batch 64
 # python2.7 process_model.py --tmodel conv --tdata CIFAR-10 --trun training --trained 0 --epoch 10 --lr 0.0001 --optimizer Adam --batch 128
 ## Deconvolution
-# python2.7 process_model.py --tdeconv custom --tdata CATS --trun deconv --tmodel conv --trained 1 --verbose 1
+# python2.7 process_model.py --tdata CATS --trun deconv --tmodel conv --trained 1 --verbose 1
 
 ## CREDIT: Adapted from practicals/HMW2 from Andrea Vedaldi and Andrew Zisserman 
 ## by Gul Varol and Ignacio Rocco in PyTorch
@@ -67,14 +67,14 @@ parser.add_argument('--decay', type=float, default=1e-6, metavar='C',
                     help='Decay rate in (0,1).')
 parser.add_argument('--momentum', type=float, default=0.9, metavar='U',
                     help='Momentum.')
-parser.add_argument('--layer', type=str, default="conv1-1", metavar='Y',
+parser.add_argument('--tlayer', type=str, default="conv1", metavar='Y',
                     help='Name of the layer to deconvolve.')
 parser.add_argument('--verbose', type=int, default=0, metavar='V',
                     help='Whether to print things or not: in {0, 1}.')
-parser.add_argument('--subtask', type=str, default="", metavar='S',
-                    help='Sub-task for deconvolution.')
-parser.add_argument('--tdeconv', type=str, default="custom", metavar='K',
-                    help='Choice of implementation for deconvolution: Mihai Dusmanu\'s (\'custom\') or DeepLearningImplementations (\'keras\').')
+#parser.add_argument('--subtask', type=str, default="", metavar='S',
+#                    help='Sub-task for deconvolution.')
+#parser.add_argument('--tdeconv', type=str, default="custom", metavar='K',
+#                    help='Choice of implementation for deconvolution: Mihai Dusmanu\'s (\'custom\') or DeepLearningImplementations (\'keras\').')
 parser.add_argument('--loss', type=str, default="categorical_crossentropy", metavar='O',
                     help='Choice of loss function, among those supported by Keras.')
 args = parser.parse_args()
@@ -86,6 +86,9 @@ if not os.path.exists(folder):
 folder += args.tdata + "/"
 if not os.path.exists(folder):
 	os.mkdir(folder)
+
+if not os.path.exists("./Figures/"):
+        os.makedirs("./Figures/")
 
 if (args.optimizer == "SGD"):
 	optimizer = SGD(lr = args.lr, decay=args.decay, momentum=args.momentum, nesterov=True)
@@ -161,18 +164,16 @@ d_models = {"conv": models.Conv, "vgg": models.VGG_16, "conv2": models.Conv2, "v
 d_dmodels = {"conv": deconv_models.Conv, "vgg": deconv_models.VGG_16, "conv2": deconv_models.Conv2, "vonc": deconv_models.Vonc}
 
 ## NN model
-model = d_models[args.tmodel](pretrained=args.trained>0, deconv=args.trun == "deconv", sz=sz)
+model = d_models[args.tmodel](pretrained=args.trained>0, deconv=args.trun == "deconv", sz=sz, layer=args.tlayer)
 if (args.trun != "deconv"):
 	model.compile(loss=args.loss, optimizer=optimizer, metrics=['accuracy'])
 
 ## "Deconvoluted" version of NN models
-if (args.tdeconv == "custom" and args.trun == "deconv"):
-	deconv_model = d_dmodels[args.tmodel](pretrained=args.trained>0)
-	#, layer=args.layer if (args.trun=="deconv") else None)
+if (args.trun == "deconv"):
+	deconv_model = d_dmodels[args.tmodel](pretrained=args.trained>0, layer=args.tlayer, sz=sz)
 	deconv_model.compile(loss=args.loss, optimizer=optimizer, metrics=['accuracy'])
-if (args.tdeconv == "keras" and args.trun == "deconv"):
-	## Or the implementation of DeconvNet in Keras
-	deconv_model = DeconvNet(model)
+## Or the implementation of DeconvNet in Keras
+#deconv_model = DeconvNet(model)
 
 ## Print kernels in a given layer
 layers = [layer.name for layer in model.layers]
@@ -273,7 +274,7 @@ def save_fmap(out, layer="", sz=sz):
 	plt.axis('off')
 	plt.title("Feature map for layer " + layer[1:])
 	if (query_yes_no("Save feature map?", default="yes")):
-		plt.savefig("feature_map_layer" + layer + ".png", bbox_inches="tight")
+		plt.savefig("Figures/feature_map_layer" + layer + ".png", bbox_inches="tight")
 
 ## Generator for training data
 datagen_train = ImageDataGenerator(
@@ -311,22 +312,25 @@ if (args.trun == "testing"):
 	labels = run_nn(datagen_test, X_test, Y_test_c, Y_test, args.batch, training=False, verbose=True)
 if (args.trun == "deconv"):
 	im_nb = 0
-	layer_nb = 5
-	layer_name = model.layers[layer_nb].name
+	layer_nb = list(map(lambda x : x.name, model.layers)).index(args.tlayer)
+	print("** Layer: " + args.tlayer + " **")
 	im = preprocess_image(np.expand_dims(X_test[im_nb, :, :, :], axis=0))
 	out = model.predict([im])
-	## Images
+	print(len(out))
+	print(list(map(np.shape, out)))
+	## Feature images
 	out = deconv_model.predict(out)
 	if (args.verbose):
-		process_fmap(out, im, layer=layer_name)
-	save_fmap(out, layer=layer_name)
+		process_fmap(out, im, layer=args.tlayer)
+	save_fmap(out, layer=args.tlayer)
 	## Weights
 	weight = model.layers[layer_nb].get_weights()
 	if (len(weight) > 0):
 		for i in range(len(weight)):
 			weight = weight[i]*255.
 			if (args.verbose):
-				process_fmap(weight, im, layer="weight" + str(i) + "_"+layer_name)
-			save_fmap(weight, layer="weight" + str(i) + "_"+layer_name)
+				process_fmap(weight, im, layer="weight" + str(i) + "_"+args.tlayer)
+			save_fmap(weight, layer="weight" + str(i) + "_"+args.tlayer)
 	else:
-		print("Layer " + layer_name + " has no weights!")
+		print("Layer " + args.tlayer + " has no weights!")
+	## Max activation

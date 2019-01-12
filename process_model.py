@@ -189,9 +189,9 @@ if (args.tdeconv == "keras" and args.trun == "deconv"):
 ## Print kernels in a given layer
 layers = [layer.name for layer in model.layers]
 if (args.verbose == 1):
-	print("Layer names for model " + args.tmodel + ":\n")
+	print("Layer names for model " + args.tmodel + ":")
 	print(layers)
-	print("______________________\nSummary:\n\n")
+	print("______________________\nSummary:")
 	print(model.summary())
 
 #layer = layers[1]
@@ -266,11 +266,12 @@ def process_fmap(out, im, layer="", sz=sz):
 	plt.imshow(out)
 	plt.axis('off')
 	plt.xlabel("Feature map for layer " + layer[1:])
+	values = list(map(lambda x : str(round(x, 1)), list(map(lambda f : f(out), [np.mean, np.std, np.median]))))
+	plt.title("Mean = " + values[0] + " STD = " + values[1] + " Median = " + values[2])
 	plt.subplot('122')
 	plt.imshow(np.resize(im, (sz, sz, 3)))
 	plt.axis('off')
 	plt.xlabel("Input image")
-	plt.title("Mean = " + str(np.mean(out)) + " STD = " + str(np.std(out)) + " Median = " + np.median(out))
 	plt.show()
 	if (query_yes_no("Save feature map?", default="yes")):
 		plt.savefig(out, "feature_map_layer" + layer + ".png", bbox="tight")
@@ -310,13 +311,20 @@ if (args.trun == "testing"):
 	Y_test = Y_test[:k]
 	labels = run_nn(datagen_test, X_test, Y_test_c, Y_test, args.batch, training=False, verbose=True)
 if (args.trun == "deconv"):
-	im = preprocess_image(X_test[0, :, :, :])
-	#plt.imshow(np.resize(im, np.shape(im)[1:]))
-	#plt.show()
-	out = model.predict([im])
+	forward_net = models.Conv(pretrained=True, deconv=True)
+	backward_net = deconv_models.Conv(pretrained=True)
+	im = normalize_input("./data/cats/cat1.jpg", sz)
+	out = forward_net.predict([im])
 	print(len(out))
 	print(list(map(np.shape, out)))
-	out = deconv_model.predict(out)
+	out = backward_net.predict(out)
+	#im = preprocess_image(X_test[0, :, :, :])
+	#plt.imshow(np.resize(im, np.shape(im)[1:]))
+	#plt.show()
+	#out = model.predict([im])
+	#print(len(out))
+	#print(list(map(np.shape, out)))
+	#out = deconv_model.predict(out)
 	process_fmap(out, im)
 	raise ValueError
 	if (args.tdeconv == "keras"):

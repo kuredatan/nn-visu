@@ -105,7 +105,7 @@ def query_yes_no(question, default="yes"):
             sys.stdout.write("Please respond with 'yes' or 'no' "
                              "(or 'y' or 'n').\n")
 
-def normalize_input(im, sz, training_means=[103.939, 116.779, 123.68], data_format="channels_last"):
+def normalize_input_(im, sz, training_means=[103.939, 116.779, 123.68], data_format="channels_last"):
 	if (str(type(im)) == "<type \'str\'>"):
 		im = load_input(im, sz)
 	else:
@@ -126,3 +126,14 @@ def normalize_input(im, sz, training_means=[103.939, 116.779, 123.68], data_form
 	im = im-np.min(im)
 	im /= np.max(im)
 	return im
+
+## Preprocessing of batches of images
+def normalize_input(data, sz, training_means=[103.939, 116.779, 123.68], data_format="channels_last"):
+	if (len(np.shape(data)) == 4):
+		n = np.shape(data)[0]
+		u = np.zeros((n, sz, sz, 3))
+		for i in range(n):
+			u[i, :, :, :] = normalize_input_(data[i, :, :, :], sz, training_means, data_format)
+	else:
+		u = normalize_input_(data, sz, training_means, data_format)
+	return u

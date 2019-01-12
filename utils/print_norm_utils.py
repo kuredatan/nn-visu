@@ -7,6 +7,17 @@ import torch
 import cv2
 from imagenet1000 import imagenet1000
 import sys
+from scipy.misc import imresize
+
+def resize(im, shape):
+	if (len(np.shape(im)) < 4):
+		im = np.expand_dims(im, axis=0)
+	a, b, c, d = shape
+	res = np.zeros(shape)
+	for j in range(a):
+		for i in range(d):
+			res[j, :, :, i] = imresize(im[j, :, :, i], (1, b, c, 1))
+	return res
 
 ## CREDIT: https://blog.plon.io/tutorials/cifar-10-classification-using-keras-tutorial/
 # functions to show 5*nrows random images from set X with labels Y (CIFAR-10: 10 classes)

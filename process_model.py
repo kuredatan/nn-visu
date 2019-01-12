@@ -12,7 +12,7 @@ from keras.optimizers import Adam, SGD, RMSprop
 from keras.utils import to_categorical
 from random import sample
 from copy import deepcopy
-from print_norm_utils import print_images, plot_kernels, load_input, normalize_input, query_yes_no
+from print_norm_utils import print_images, plot_kernels, load_input, normalize_input, query_yes_no, resize
 from KerasDeconv import DeconvNet
 from keras.applications.vgg16 import preprocess_input
 import cPickle as pickle
@@ -25,8 +25,7 @@ import os
 from imagenet1000 import imagenet1000
 from cats import dict_labels_cats
 from utils import get_deconv_images, plot_deconv, plot_max_activation, find_top9_mean_act
-from skimage.transform import rescale
-from scipy.misc import imresize
+import matplotlib.pyplot as plt
 
 ## Training models
 # python2.7 process_model.py --tmodel vonc --tdata CIFAR-10 --trun training --trained 0 --epoch 250 --lr 0.01 --optimizer Adam --batch 64
@@ -37,6 +36,13 @@ from scipy.misc import imresize
 
 ## Training is performed on training set of CIFAR-10
 ## Testing is performed either on testing set of CIFAR-10, either on another dataset
+
+##################################################################################
+##################################################################################
+############# ARGUMENTS
+
+# For reproducibility
+np.random.seed(1000)
 
 parser = argparse.ArgumentParser(description='Simple NN models')
 parser.add_argument('--tmodel', type=str, default='conv', metavar='M',
@@ -86,6 +92,10 @@ if (args.optimizer == "Adam"):
 if (args.optimizer == "rmsprop"):
 	optimizer = RMSprop(lr=args.lr)
 
+##################################################################################
+##################################################################################
+############# DATA
+
 # Load data
 (X_train, Y_train), (X_test, Y_test) = cifar10.load_data()
 
@@ -100,30 +110,17 @@ def aux_process_input(x, sz, training_means):
 	x = np.concatenate(images, axis=0)
 	return x
 
-def resize(im, shape):
-	if (len(np.shape(im)) < 4):
-		im = np.expand_dims(im, axis=0)
-	a, b, c, d = shape
-	res = np.zeros(shape)
-	for j in range(a):
-		for i in range(d):
-			res[j, :, :, i] = imresize(im[j, :, :, i], (1, b, c, 1))
-	return res
-
 if (args.tmodel == "vgg"):
 	sz = 224
 	preprocess_image = lambda x : preprocess_input(resize(x, (np.shape(x)[0], sz, sz, 3)))/255.
 else:
 	sz = 32
 	training_means = [np.mean(X_train[:,:,i].astype('float32')) for i in range(3)]
-	#preprocess_image = lambda x : aux_process_input(x, sz, training_means)
-	preprocess_image = lambda x : resize(x, (1, sz, sz, 3))/255. #(np.shape(x)[0], sz, sz, 3)
+	preprocess_image = lambda x : aux_process_input(x, sz, training_means)
+	#preprocess_image = lambda x : resize(x, (1, sz, sz, 3))/255. #(np.shape(x)[0], sz, sz, 3)
 
 ## CREDIT: Keras training on CIFAR-10 
 ## https://gist.github.com/giuseppebonaccorso/e77e505fc7b61983f7b42dc1250f31c8
-
-# For reproducibility
-np.random.seed(1000)
 
 ## CREDIT: https://github.com/tdeboissiere/DeepLearningImplementations/tree/master/DeconvNet
 if (args.trun != "training" and args.tdata == "CATS"):
@@ -169,18 +166,22 @@ Y_val_c = Y_train_c[in_val, :]
 X_train = X_train[in_train, :, :, :]
 Y_train_c = Y_train_c[in_train, :]
 
+##################################################################################
+##################################################################################
+############# MODELS
+
 d_models = {"conv": models.Conv, "vgg": models.VGG_16, "conv2": models.Conv2, "vonc": models.Vonc}
 d_dmodels = {"conv": deconv_models.Conv, "vgg": deconv_models.VGG_16, "conv2": deconv_models.Conv2, "vonc": deconv_models.Vonc}
 
 ## NN model
-model = d_models[args.tmodel](pretrained=(args.trun=="testing" and args.trained), deconv=args.trun == "deconv", sz=sz)
+model = d_models[args.tmodel](pretrained=args.trained>0, deconv=args.trun == "deconv", sz=sz)
 if (args.trun != "deconv"):
 	model.compile(loss=args.loss, optimizer=optimizer, metrics=['accuracy'])
 
 ## "Deconvoluted" version of NN models
 if (args.tdeconv == "custom" and args.trun == "deconv"):
-	deconv_model = d_dmodels[args.tmodel](pretrained=(args.trun=="deconv" and args.trained), layer=args.layer if (args.trun=="deconv") else None)
-	deconv_model.compile(loss=args.loss, optimizer=optimizer, metrics=['accuracy'])
+	deconv_model = d_dmodels[args.tmodel](pretrained=args.trained>0)#, layer=args.layer if (args.trun=="deconv") else None)
+	#deconv_model.compile(loss=args.loss, optimizer=optimizer, metrics=['accuracy'])
 if (args.tdeconv == "keras" and args.trun == "deconv"):
 	## Or the implementation of DeconvNet in Keras
 	deconv_model = DeconvNet(model)
@@ -258,8 +259,25 @@ def run_nn(datagen, X, Y_c, Y, batch_size, training=False, verbose=True, kmin=10
 		model.save_weights('./data/weights/'+args.tmodel+'_weights.h5')
 	return hist
 
+def process_fmap(out, im, layer="", sz=sz):
+	layer = "_"+layer
+	out = np.resize(out, (sz, sz, 3))
+	plt.subplot('121')
+	plt.imshow(out)
+	plt.axis('off')
+	plt.xlabel("Feature map for layer " + layer[1:])
+	plt.subplot('122')
+	plt.imshow(np.resize(im, (sz, sz, 3)))
+	plt.axis('off')
+	plt.xlabel("Input image")
+	plt.title("Mean = " + str(np.mean(out)) + " STD = " + str(np.std(out)) + " Median = " + np.median(out))
+	plt.show()
+	if (query_yes_no("Save feature map?", default="yes")):
+		plt.savefig(out, "feature_map_layer" + layer + ".png", bbox="tight")
+
 ## Generator for training data
 datagen_train = ImageDataGenerator(
+	rescale=1.,
 	featurewise_center=False,
 	featurewise_std_normalization=False,
 	## Normalization
@@ -274,6 +292,7 @@ datagen_train = ImageDataGenerator(
 
 ## Generator for testing data
 datagen_test = ImageDataGenerator(
+	rescale=1.,
 	featurewise_center=False,
 	featurewise_std_normalization=False,
 	## Normalization
@@ -291,7 +310,15 @@ if (args.trun == "testing"):
 	Y_test = Y_test[:k]
 	labels = run_nn(datagen_test, X_test, Y_test_c, Y_test, args.batch, training=False, verbose=True)
 if (args.trun == "deconv"):
-	out = model.predict(X_test)
+	im = preprocess_image(X_test[0, :, :, :])
+	#plt.imshow(np.resize(im, np.shape(im)[1:]))
+	#plt.show()
+	out = model.predict([im])
+	print(len(out))
+	print(list(map(np.shape, out)))
+	out = deconv_model.predict(out)
+	process_fmap(out, im)
+	raise ValueError
 	if (args.tdeconv == "keras"):
 		layer_name = layers[-2]
 		i = 0

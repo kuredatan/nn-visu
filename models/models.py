@@ -24,7 +24,7 @@ from keras.applications.vgg16 import VGG16
 #model = VGG16(include_top=True, weights='imagenet', classes=num_classes)
 #model.save_weights('vgg16_weights.h5')
 
-def VGG_16(pretrained=True, weights_path=None, noutputs=num_classes, deconv=False, sz=32):
+def VGG_16(pretrained=True, weights_path=None, noutputs=num_classes, deconv=False, sz=32, layer=""):
 	if (weights_path):
 		print(msg)
 		weights = "imagenet"
@@ -39,7 +39,7 @@ def VGG_16(pretrained=True, weights_path=None, noutputs=num_classes, deconv=Fals
 	return model
 
 ## CREDIT: https://gist.github.com/baraldilorenzo/07d7802847aaad0a35d3
-def VGG_16_2(pretrained=True, weights_path=None, noutputs=num_classes, deconv=False, sz=32):
+def VGG_16_2(pretrained=True, weights_path=None, noutputs=num_classes, deconv=False, sz=32, layer=""):
 	if (pretrained):
 		weights_path = './data/weights/vgg16_weights.h5'
 
@@ -108,7 +108,7 @@ def VGG_16_2(pretrained=True, weights_path=None, noutputs=num_classes, deconv=Fa
 	return model
 
 ## CREDIT: https://blog.plon.io/tutorials/cifar-10-classification-using-keras-tutorial/
-def Conv2(pretrained=True, weights_path=None, noutputs=num_classes, deconv=False, sz=32):
+def Conv2(pretrained=True, weights_path=None, noutputs=num_classes, deconv=False, sz=32, layer=""):
 	if (pretrained):
 		weights_path = './data/weights/conv2_weights.h5'
 
@@ -151,43 +151,54 @@ def Conv(pretrained=True, weights_path=None, noutputs=num_classes, deconv=False,
 	inp = Input(shape = (sz, sz, 3))
 	x = inp
 	x = Conv2D(32, (3, 3), padding='same', activation='relu', name="conv1")(x)
-	if (not layer == "conv1"):
+	layers = ["conv1"]
+	if (not layer in layers):
 		x = Dropout(0.2)(x)
 		x = Conv2D(32, (3, 3), padding='same', activation="relu", name="conv2")(x)
-		if (not layer == "conv2"):
-			x, pos1 = MaxPooling2D(pool_size=2, strides=2, name="pool2")(x)
-			if (not layer == "pool2"):
-				x = Conv2D(64, (3, 3), padding='same', activation="relu", name="conv3")(x)
-				if (not layer == "conv3"):
-					x = Dropout(0.2)(x)
-					x = Conv2D(64, (3, 3), padding='same', activation="relu", name="conv4")(x)
-					if (not layer == "conv4"):
-						x, pos2 = MaxPooling2D(pool_size=2, strides=2, name="pool4")(x)
-						if (not layer == "pool4"):
-							x = Conv2D(128,(3,3),padding='same',activation='relu', name="conv5")(x)
-							if (not layer == "conv5"):
-								x = Dropout(0.2)(x)
-								x = Conv2D(128,(3,3),padding='same',activation='relu', name="conv6")(x)
-								if (not layer == "conv6"):
-									x, pos3 = MaxPooling2D(pool_size=2, strides=2, name="pool6")(x)
-									if (not layer == "pool6"):
-										x = Flatten()(x)
-										x = Dropout(0.2)(x)
-										x = Dense(1024,activation='relu',
-											kernel_constraint=maxnorm(3), name="dense1")(x)
-										if (not layer == "dense1"):
-											x = Dropout(0.2)(x)
-											x = Dense(noutputs, activation='softmax', name="dense2")(x)
+	layers.append("conv2")
+	if (not layer in layers):
+		x, pos1 = MaxPooling2D(pool_size=2, strides=2, name="pool2")(x)
+	layers.append("pool2")
+	if (not layer in layers):
+		x = Conv2D(64, (3, 3), padding='same', activation="relu", name="conv3")(x)
+	layers.append("conv3")
+	if (not layer in layers):
+		x = Dropout(0.2)(x)
+		x = Conv2D(64, (3, 3), padding='same', activation="relu", name="conv4")(x)
+	layers.append("conv4")
+	if (not layer in layers):
+		x, pos2 = MaxPooling2D(pool_size=2, strides=2, name="pool4")(x)
+	layers.append("pool4")
+	if (not layer in layers):
+		x = Conv2D(128,(3,3),padding='same',activation='relu', name="conv5")(x)
+	layers.append("conv5")
+	if (not layer in layers):
+		x = Dropout(0.2)(x)
+		x = Conv2D(128,(3,3),padding='same',activation='relu', name="conv6")(x)
+	layers.append("conv6")
+	if (not layer in layers):
+		x, pos3 = MaxPooling2D(pool_size=2, strides=2, name="pool6")(x)
+	layers.append("pool6")
+	if (not layer in layers):
+		x = Flatten()(x)
+		x = Dropout(0.2)(x)
+		x = Dense(1024,activation='relu', kernel_constraint=maxnorm(3), name="dense1")(x)
+	layers.append("dense1")
+	if (not layer in layers):
+		x = Dropout(0.2)(x)
+		x = Dense(noutputs, activation='softmax', name="dense2")(x)
 
 	if (deconv):
 		outputs = [x]
-		print(np.shape(x))
-		if (not (layer in ['conv1', 'conv2'])):
+		layers = ['conv1', 'conv2']
+		if (not layer in layers):
 			outputs.append(pos1)
-			if (not (layer in ['pool2', 'conv3', 'conv4'])):
-				outputs.append(pos2)
-				if (not (layer in ['pool4', 'conv5', 'conv6'])):
-					outputs.append(pos3)
+		layers += ['pool2', 'conv3', 'conv4']
+		if (not layer in layers):
+			outputs.append(pos2)
+		layers += ['pool4', 'conv5', 'conv6']
+		if (not layer in layers):
+			outputs.append(pos3)
 	else:
 		outputs = [x]
 
@@ -201,7 +212,7 @@ def Conv(pretrained=True, weights_path=None, noutputs=num_classes, deconv=False,
 
 ## CREDIT: Keras training on CIFAR-10 
 ## https://gist.github.com/giuseppebonaccorso/e77e505fc7b61983f7b42dc1250f31c8
-def Vonc(pretrained=True, weights_path=None, noutputs=num_classes, deconv=False, sz=32):
+def Vonc(pretrained=True, weights_path=None, noutputs=num_classes, deconv=False, sz=32, layer=""):
 	if (pretrained):
 		weights_path = './data/weights/vonc_weights.h5'
 

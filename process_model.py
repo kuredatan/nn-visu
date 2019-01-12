@@ -13,7 +13,6 @@ from keras.utils import to_categorical
 from random import sample
 from copy import deepcopy
 from print_norm_utils import print_images, plot_kernels, normalize_input, query_yes_no, load_input
-from KerasDeconv import DeconvNet
 from keras.applications.vgg16 import preprocess_input
 import cPickle as pickle
 import models
@@ -30,8 +29,10 @@ import matplotlib.pyplot as plt
 ## Training models
 # python2.7 process_model.py --tmodel vonc --tdata CIFAR-10 --trun training --trained 0 --epoch 250 --lr 0.01 --optimizer Adam --batch 64
 # python2.7 process_model.py --tmodel conv --tdata CIFAR-10 --trun training --trained 0 --epoch 10 --lr 0.0001 --optimizer Adam --batch 128
+## Testing
+# python2.7 process_model.py --tmodel conv --tdata CIFAR-10 --trun testing --trained 1
 ## Deconvolution
-# python2.7 process_model.py --tdata CATS --trun deconv --tmodel conv --trained 1 --verbose 1
+# python2.7 process_model.py --tmodel conv --trained 1 --batch 1 --trun deconv --tlayer conv6 --tdata CATS --verbose 1
 
 ## CREDIT: Adapted from practicals/HMW2 from Andrea Vedaldi and Andrew Zisserman 
 ## by Gul Varol and Ignacio Rocco in PyTorch
@@ -67,7 +68,7 @@ parser.add_argument('--decay', type=float, default=1e-6, metavar='C',
                     help='Decay rate in (0,1).')
 parser.add_argument('--momentum', type=float, default=0.9, metavar='U',
                     help='Momentum.')
-parser.add_argument('--tlayer', type=str, default="conv1", metavar='Y',
+parser.add_argument('--tlayer', type=str, default="", metavar='Y',
                     help='Name of the layer to deconvolve.')
 parser.add_argument('--verbose', type=int, default=0, metavar='V',
                     help='Whether to print things or not: in {0, 1}.')
@@ -197,30 +198,27 @@ def run_nn(datagen, X, Y_c, Y, batch_size, training=False, verbose=True, kmin=10
 	n = np.shape(X)[0]
 	epochs = args.epoch if (training) else 1
 	Y_test = []
-	for e in range(epochs):
-		batch = 0
-		if (training):
-			print('Epoch', e+1)
+	batch = 0
+	if (training):
+		hist = model.fit_generator(datagen.flow(X, Y_c, batch_size=batch_size), verbose=1,
+			epochs=epochs,shuffle=True,steps_per_epoch=np.shape(X)[0]//batch_size, 
+			callbacks=[EarlyStopping(monitor="loss", min_delta=0.001, patience=3)])
+	else:
 		for x_batch, y_batch in datagen.flow(X, Y_c, batch_size=batch_size):
 			if (args.verbose):
 				print("Batch #" + str(batch+1) + "/" + str(n/batch_size+1))
-			if (training):
-				hist = model.fit(x_batch, y_batch, verbose=1,
-					epochs=1,shuffle=True,
-					callbacks=[EarlyStopping(monitor="loss", min_delta=0.001, patience=3)])
-			else:
-				predictions = model.predict(x_batch, batch_size, verbose=1)
-				try:
-					pred_ = [np.argmax(predictions[0][i, :]) for i in range(len(predictions))]
-				except:
-					pred_ = [np.argmax(predictions[i, :]) for i in range(len(predictions))]
-				labels += pred_
-				Y_batch = [np.argmax(y_batch[i, :]) for i in range(len(predictions))]
-				Y_test += Y_batch
-				acc = np.array(pred_)==np.array(Y_batch)
-				acc = np.sum(acc)/float(len(predictions))
-				if (args.verbose):
-					print(str(batch_size*(batch+1)) + "/" + str(n) + ": acc = " + str(acc))
+			predictions = model.predict(x_batch, batch_size, verbose=1)
+			try:
+				pred_ = [np.argmax(predictions[0][i, :]) for i in range(len(predictions))]
+			except:
+				pred_ = [np.argmax(predictions[i, :]) for i in range(len(predictions))]
+			labels += pred_
+			Y_batch = [np.argmax(y_batch[i, :]) for i in range(len(predictions))]
+			Y_test += Y_batch
+			acc = np.array(pred_)==np.array(Y_batch)
+			acc = np.sum(acc)/float(len(predictions))
+			if (args.verbose):
+				print(str(batch_size*(batch+1)) + "/" + str(n) + ": acc = " + str(acc))
 			if batch >= n / batch_size:
 				break
 			else:

@@ -91,6 +91,8 @@ if not os.path.exists(folder):
 
 if not os.path.exists("./Figures/"):
         os.makedirs("./Figures/")
+if not os.path.exists("./Figures/"+args.tmodel+"/"):
+        os.makedirs("./Figures/"+args.tmodel+"/")
 
 if (args.optimizer == "SGD"):
 	optimizer = SGD(lr = args.lr, decay=args.decay, momentum=args.momentum, nesterov=True)
@@ -178,12 +180,16 @@ if (args.verbose == 1):
 	print("______________________\nSummary:")
 	print(model.summary())
 
+layers = list(map(lambda x : x.name, model.layers))
 #layer = layers[1]
 #print("Plotting kernel from layer \'" + layer + "\'")
 #plot_kernels(model, layer)
 
 ## "Deconvoluted" version of NN models
 if (args.trun == "deconv"):
+	if (not args.tlayer in layers):
+		print(args.tlayer + " is not in layer list: " + str(layers))
+		raise ValueError
 	deconv_model = d_dmodels[args.tmodel](pretrained=args.trained>0, layer=args.tlayer, sz=sz)
 	deconv_model.compile(loss=args.loss, optimizer=optimizer, metrics=['accuracy'])
 ## Or the implementation of DeconvNet in Keras
@@ -273,7 +279,7 @@ def save_fmap(out, layer="", sz=sz):
 	plt.axis('off')
 	plt.title("Feature map for layer " + layer[1:])
 	if (query_yes_no("Save feature map?", default="yes")):
-		plt.savefig("Figures/feature_map_layer" + layer + ".png", bbox_inches="tight")
+		plt.savefig("Figures/"+args.tmodel+"/"+args.tmodel+"_feature_map_layer" + layer + ".png", bbox_inches="tight")
 
 ## Generator for training data
 datagen_train = ImageDataGenerator(
@@ -311,7 +317,7 @@ if (args.trun == "testing"):
 	labels = run_nn(datagen_test, X_test, Y_test_c, Y_test, args.batch, training=False, verbose=True)
 if (args.trun == "deconv"):
 	im_nb = 0
-	layer_nb = list(map(lambda x : x.name, model.layers)).index(args.tlayer)
+	layer_nb = layers.index(args.tlayer)
 	print("** Layer: " + args.tlayer + " **")
 	im = preprocess_image(np.expand_dims(X_test[im_nb, :, :, :], axis=0))
 	out = model.predict([im])

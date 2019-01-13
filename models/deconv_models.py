@@ -14,8 +14,7 @@ from keras.layers.convolutional import ZeroPadding2D
 from pool_unpool import UndoMaxPooling2D
 from deconv2D import Deconv2D
 import torch
-
-## TODO Models are not yet checked and tested! (check the filter sizes for deconv filters)
+from resize import Interp
 
 sz = 32
 num_classes = 1000
@@ -76,24 +75,59 @@ def Conv2(pretrained=True, weights_path=None, noutputs=num_classes, layer="", sz
 	if (pretrained):
 		weights_path = './data/weights/conv2_weights.h5'
 
-	inp = Input(batch_shape = (1, sz // 4, sz // 4, 64))
-	x = inp
+	pos1, pos2, pos3 = [None]*3
 
-	pos2 = Input(batch_shape = (1, sz // 4, sz // 4, 32))
-	x = UndoMaxPooling2D((1, sz, sz, 32), name="pool2")([x, pos2])
-	x = Deconv2D(64//2,3,padding='SAME',activation='relu', name="conv2-2")(x)
-	x = Deconv2D(64//2,3,padding='SAME',activation='relu', name="conv2-1")(x)
+	layers = ["pool2"]
+	if (layer in layers):
+		inp = Input(batch_shape = (1, sz // 4, sz // 4, 64))
+		x = inp
+		pos2 = Input(batch_shape = (1, sz // 4, sz // 4, 32))
+		x = UndoMaxPooling2D((1, sz, sz, 32), name="pool2")([x, pos2])
+	layers.append("conv2-2")
+	if (layer in layers):
+		if (layer == "conv2-2"):
+			inp = Input(batch_shape = (1, sz // 4, sz // 4, 64))
+			x = inp
+		x = Deconv2D(64//2,3,padding='SAME',activation='relu', name="conv2-2")(x)
+	layers.append("conv2-1")
+	if (layer in layers):
+		if (layer == "conv2-1"):
+			inp = Input(batch_shape = (1, sz // 4, sz // 4, 64))
+			x = inp
+		x = Deconv2D(64//2,3,padding='SAME',activation='relu', name="conv2-1")(x)
+	layers.append("pool1")
+	if (layer in layers):
+		if (layer == "pool1"):
+			inp = Input(batch_shape = (1, sz // 4, sz // 4, 64))
+			x = inp
+		pos1 = Input(batch_shape = (1, sz // 2, sz // 2, 16))
+		x = UndoMaxPooling2D((1, sz, sz, 16), name="pool1")([x, pos1])
+	layers.append("conv1-2")
+	if (layer in layers):
+		if (layer == "conv1-2"):
+			inp = Input(batch_shape = (1, sz // 4, sz // 4, 64))
+			x = inp
+		x = Deconv2D(32//2, 3, padding='SAME', activation="relu", name="conv1-2")(x)
+	layers.append("conv1-1")
+	if (layer in layers):
+		if (layer == "conv1-1"):
+			inp = Input(batch_shape = (1, sz // 4, sz // 4, 64))
+			x = inp
+		x = Deconv2D(32//2, 3, padding='SAME', activation="relu", name="conv1-1")(x)
 
-	pos1 = Input(batch_shape = (1, sz // 2, sz // 2, 16))
-	x = UndoMaxPooling2D((1, sz, sz, 16), name="pool1")([x, pos1])
-	x = Deconv2D(32//2, 3, padding='SAME', activation="relu", name="conv1-2")(x)
-	x = Deconv2D(32//2, 3, padding='SAME', activation="relu", name="conv1-1")(x)
+	inputs = [inp]
+	if (pos1 != None):
+		inputs.append(pos1)
+	if (pos2 != None):
+		inputs.append(pos2)
+	if (pos3 != None):
+		inputs.append(pos3)
 
-	model = Model(inputs = [inp, pos1, pos2], outputs = x)
+	model = Model(inputs = inputs, outputs = x)
 
 	if weights_path:
-		print(msg)
 		model.load_weights(weights_path, by_name=True)
+		print(msg)
 
 	return model
 
@@ -172,8 +206,8 @@ def Conv(pretrained=True, weights_path=None, noutputs=num_classes, layer="", sz=
 	model = Model(inputs = inputs, outputs = x)
 
 	if weights_path:
-		print(msg)
 		model.load_weights(weights_path, by_name=True)
+		print(msg)
 
 	return model
 
@@ -183,26 +217,68 @@ def Vonc(pretrained=True, weights_path=None, noutputs=num_classes, deconv=False,
 	if (pretrained):
 		weights_path = './data/weights/vonc_weights.h5'
 
-	inp = Input(batch_shape = (1, sz // 4, sz // 4, 128))
-	x = inp
+	pos1, pos2, pos3 = [None]*3
 
-	pos3 = Input(batch_shape = (1, sz // 4, sz // 4, 128))
-	x = UndoMaxPooling2D((1, sz, sz, 128), name="pool3")([x, pos3])
-	x = Deconv2D(128,3,padding='SAME',activation='relu', name="block2_conv2")(x)
-	pos2 = Input(batch_shape = (1, sz, sz, 64))
-	x = UndoMaxPooling2D((1, sz, sz, 64), name="pool2")([x, pos2])
-	x = Deconv2D(128//2,3,padding='SAME',activation='relu', name="block2_conv1")(x)
+	layers = ["pool3"]
+	if (layer in layers):
+		inp = Input(batch_shape = (1, sz // 16, sz // 16, 128))
+		x = inp
+		pos3 = Input(batch_shape = (1, sz // 16, sz // 16, 128))
+		x = UndoMaxPooling2D((1, sz // 8, sz // 8, 128), name="pool3")([x, pos3])
+	layers.append("block2_conv2")
+	if (layer in layers):
+		if (layer == "block2_conv2"):
+			inp = Input(batch_shape = (1, sz // 8, sz // 8, 128))
+			x = inp
+		x = Deconv2D(128,3,padding='SAME',activation='relu', name="block2_conv2")(x)
+	layers.append("pool2")
+	if (layer in layers):
+		if (layer == "pool2"):
+			inp = Input(batch_shape = (1, 6, 6, 128))
+			x = inp
+		pos2 = Input(batch_shape = (1, 6, 6, 128))
+		#x = UndoMaxPooling2D((1, 6, 6, 128), name="pool2")([x, pos2])
+	layers.append("block2_conv1")
+	if (layer in layers):
+		if (layer == "block2_conv1"):
+			inp = Input(batch_shape = (1, 12, 12, 128))
+			x = inp
+		## "Deconvolution" of Dropout layers
+		x = Interp((14, 14))(x)
+		x = Deconv2D(128//2,3,padding='SAME',activation='relu', name="block2_conv1")(x)
+	layers.append("pool1")
+	if (layer in layers):
+		if (layer == "pool1"):
+			inp = Input(batch_shape = (1, 14, 14, 64))
+			x = inp
+		pos1 = Input(batch_shape = (1, 14, 14, 64))
+		x = UndoMaxPooling2D((1, 28, 28, 64), name="pool1")([x, pos1])
+	layers.append("block1_conv2")
+	if (layer in layers):
+		if (layer == "block1_conv2"):
+			inp = Input(batch_shape = (1, 28, 28, 64))
+			x = inp
+		x = Deconv2D(64//2, 3, padding='SAME', activation="relu", name="block1_conv2")(x)
+	layers.append("block1_conv1")
+	if (layer in layers):
+		if (layer == "block1_conv1"):
+			inp = Input(batch_shape = (1, 30, 30, 32))
+			x = inp
+		x = Deconv2D(3, 3, padding='SAME', activation='relu', name="block1_conv1")(x)
 
-	pos1 = Input(batch_shape = (1, sz, sz, 32))
-	x = UndoMaxPooling2D((1, sz, sz, 32), name="pool1")([x, pos1])
-	x = Deconv2D(64//2, 3, padding='SAME', activation="relu", name="block1_conv2")(x)
-	x = Deconv2D(3, 3, padding='SAME', activation='relu', name="block1_conv1")(x)
+	inputs = [inp]
+	if (pos1 != None):
+		inputs.append(pos1)
+	if (pos2 != None):
+		inputs.append(pos2)
+	if (pos3 != None):
+		inputs.append(pos3)
 
-	model = Model(inputs = [inp, pos1, pos2, pos3], outputs = x)
+	model = Model(inputs = inputs, outputs = x)
 
 	if weights_path:
-		print(msg)
 		model.load_weights(weights_path, by_name=True)
+		print(msg)
 
 	return model
 

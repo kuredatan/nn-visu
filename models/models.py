@@ -102,8 +102,8 @@ def VGG_16_2(pretrained=True, weights_path=None, noutputs=num_classes, deconv=Fa
 	model = Model(inputs = inp, outputs = outputs)
 
 	if weights_path:
-		print(msg)
 		model.load_weights(weights_path, by_name = True)
+		print(msg)
 
 	return model
 
@@ -114,32 +114,47 @@ def Conv2(pretrained=True, weights_path=None, noutputs=num_classes, deconv=False
 
 	inp = Input(shape = (sz, sz, 3))
 	x = inp
-
 	x = Conv2D(32, (3, 3), padding='same', activation="relu", name="conv1-1")(x)
-	x = Conv2D(32, (3, 3), padding='same', activation="relu", name="conv1-2")(x)
-	x, pos1 = MaxPooling2D(pool_size=2, strides=2, name="pool1")(x)
-	x = Dropout(0.25)(x)
-
-	x = Conv2D(64, (3, 3), padding='same', activation="relu", name="conv2-1")(x)
-	x = Conv2D(64, (3, 3), padding='same', activation="relu", name="conv2-2")(x)
-	x, pos2 = MaxPooling2D(pool_size=2, strides=2, name="pool2")(x)
-	x = Dropout(0.25)(x)
-
-	x = Flatten()(x)
-	x = Dense(512, name="dense1", activation="relu")(x)
-	x = Dropout(0.5)(x)
-	x = Dense(noutputs, activation="softmax", name="dense2")(x)
+	layers = ["conv1-1"]
+	if (not layer in layers):
+		x = Conv2D(32, (3, 3), padding='same', activation="relu", name="conv1-2")(x)
+	layers.append("conv1-2")
+	if (not layer in layers):
+		x, pos1 = MaxPooling2D(pool_size=2, strides=2, name="pool1")(x)
+	layers.append("pool1")
+	if (not layer in layers):
+		x = Dropout(0.25)(x)
+		x = Conv2D(64, (3, 3), padding='same', activation="relu", name="conv2-1")(x)
+	layers.append("conv2-1")
+	if (not layer in layers):	
+		x = Conv2D(64, (3, 3), padding='same', activation="relu", name="conv2-2")(x)
+	layers.append("conv2-2")
+	if (not layer in layers):
+		x, pos2 = MaxPooling2D(pool_size=2, strides=2, name="pool2")(x)
+	layers.append("pool2")
+	if (not layer in layers):
+		x = Dropout(0.25)(x)
+		x = Flatten()(x)
+		x = Dense(512, name="dense1", activation="relu")(x)
+		x = Dropout(0.5)(x)
+		x = Dense(noutputs, activation="softmax", name="dense2")(x)
 
 	if (deconv):
-		outputs = [x, pos1, pos2]
+		outputs = [x]
+		layers = ['conv1-1', 'conv1-1']
+		if (not layer in layers):
+			outputs.append(pos1)
+		layers += ['pool1', 'conv2-1', "conv2-2"]
+		if (not layer in layers):
+			outputs.append(pos2)
 	else:
 		outputs = [x]
 
 	model = Model(inputs = inp, outputs = outputs)
 
 	if weights_path:
-		print(msg)
 		model.load_weights(weights_path, by_name=True)
+		print(msg)
 
 	return model
 
@@ -183,8 +198,6 @@ def Conv(pretrained=True, weights_path=None, noutputs=num_classes, deconv=False,
 		x = Flatten()(x)
 		x = Dropout(0.2)(x)
 		x = Dense(1024,activation='relu', kernel_constraint=maxnorm(3), name="dense1")(x)
-	layers.append("dense1")
-	if (not layer in layers):
 		x = Dropout(0.2)(x)
 		x = Dense(noutputs, activation='softmax', name="dense2")(x)
 
@@ -205,8 +218,8 @@ def Conv(pretrained=True, weights_path=None, noutputs=num_classes, deconv=False,
 	model = Model(inputs = inp, outputs = outputs)
 
 	if weights_path:
-		print(msg)
 		model.load_weights(weights_path, by_name=True)
+		print(msg)
 
 	return model
 
@@ -218,32 +231,52 @@ def Vonc(pretrained=True, weights_path=None, noutputs=num_classes, deconv=False,
 
 	inp = Input(shape = (sz, sz, 3))
 	x = inp
-
 	x = Conv2D(32, (3, 3), activation='relu', name="block1_conv1")(x)
-	x = Conv2D(64, (3, 3), activation='relu', name="block1_conv2")(x)
-	x, pos1 = MaxPooling2D(pool_size=2, strides=2, name="pool1")(x)
-	x = Dropout(0.25)(x)
-
-	x = Conv2D(128, (3, 3), activation='relu', name="block2_conv1")(x)
-	x, pos2 = MaxPooling2D(pool_size=2, strides=2, name="pool2")(x)
-	x = Conv2D(128, (3, 3), activation='relu', name="block2_conv2")(x)
-	x, pos3 = MaxPooling2D(pool_size=2, strides=2, name="pool3")(x)
-	x = Dropout(0.25)(x)
-
-	x = Flatten()(x)
-	x = Dense(1024,activation='relu',name="dense1")(x)
-	x = Dropout(0.25)(x)
-	x = Dense(noutputs, activation='softmax', name="dense2")(x)
+	layers = ["block1_conv1"]
+	if (not layer in layers):
+		x = Conv2D(64, (3, 3), activation='relu', name="block1_conv2")(x)
+	layers.append("block1_conv2")
+	if (not layer in layers):
+		x, pos1 = MaxPooling2D(pool_size=2, strides=2, name="pool1")(x)
+	layers.append("pool1")
+	if (not layer in layers):
+		x = Dropout(0.25)(x)
+		x = Conv2D(128, (3, 3), activation='relu', name="block2_conv1")(x)
+	layers.append("block2_conv1")
+	if (not layer in layers):
+		x, pos2 = MaxPooling2D(pool_size=2, strides=2, name="pool2")(x)
+	layers.append("pool2")
+	if (not layer in layers):
+		x = Conv2D(128, (3, 3), activation='relu', name="block2_conv2")(x)
+	layers.append("block2_conv2")
+	if (not layer in layers):
+		x, pos3 = MaxPooling2D(pool_size=2, strides=2, name="pool3")(x)
+	layers.append("pool3")
+	if (not layer in layers):
+		x = Dropout(0.25)(x)
+		x = Flatten()(x)
+		x = Dense(1024,activation='relu',name="dense1")(x)
+		x = Dropout(0.25)(x)
+		x = Dense(noutputs, activation='softmax', name="dense2")(x)
 
 	if (deconv):
-		outputs = [x, pos1, pos2, pos3]
+		outputs = [x]
+		layers = ['block1_conv1', 'block1_conv2']
+		if (not layer in layers):
+			outputs.append(pos1)
+		layers += ['pool1', 'block2_conv1']
+		if (not layer in layers):
+			outputs.append(pos2)
+		layers += ['pool2', 'block2_conv2']
+		if (not layer in layers):
+			outputs.append(pos3)
 	else:
 		outputs = [x]
 
 	model = Model(inputs = inp, outputs = outputs)
 
 	if weights_path:
-		print(msg)
 		model.load_weights(weights_path, by_name=True)
+		print(msg)
 
 	return model

@@ -12,7 +12,7 @@ from keras.optimizers import Adam, SGD, RMSprop
 from keras.utils import to_categorical
 from random import sample
 from copy import deepcopy
-from print_norm_utils import print_images, plot_kernels, normalize_input, query_yes_no, load_input
+from print_norm_utils import print_images, plot_kernels, normalize_input, query_yes_no, load_input, resize
 from keras.applications.vgg16 import preprocess_input
 import cPickle as pickle
 import models
@@ -112,7 +112,7 @@ num_classes = 1000
 
 if (args.tmodel == "vgg"):
 	sz = 224
-	preprocess_image = lambda x : preprocess_input(resize(x, (np.shape(x)[0], sz, sz, 3)))/255.
+	preprocess_image = lambda x : preprocess_input(resize(x, (1, sz, sz, 3)))
 else:
 	sz = 32
 	training_means = [np.mean(X_train[:,:,i].astype('float32')) for i in range(3)]

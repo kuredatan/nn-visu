@@ -29,6 +29,7 @@ import matplotlib.pyplot as plt
 ## Training models
 # python2.7 process_model.py --tmodel vonc --tdata CIFAR-10 --trun training --trained 0 --epoch 250 --lr 0.01 --optimizer Adam --batch 64
 # python2.7 process_model.py --tmodel conv --tdata CIFAR-10 --trun training --trained 0 --epoch 10 --lr 0.0001 --optimizer Adam --batch 128
+# python2.7 process_model.py --tmodel conv2 --tdata CIFAR-10 --trun training --trained 0 --epoch 10 --lr 0.01 --optimizer SGD --batch 128
 ## Testing
 # python2.7 process_model.py --tmodel conv --tdata CIFAR-10 --trun testing --trained 1
 ## Deconvolution
@@ -169,13 +170,6 @@ model = d_models[args.tmodel](pretrained=args.trained>0, deconv=args.trun == "de
 if (args.trun != "deconv"):
 	model.compile(loss=args.loss, optimizer=optimizer, metrics=['accuracy'])
 
-## "Deconvoluted" version of NN models
-if (args.trun == "deconv"):
-	deconv_model = d_dmodels[args.tmodel](pretrained=args.trained>0, layer=args.tlayer, sz=sz)
-	deconv_model.compile(loss=args.loss, optimizer=optimizer, metrics=['accuracy'])
-## Or the implementation of DeconvNet in Keras
-#deconv_model = DeconvNet(model)
-
 ## Print kernels in a given layer
 layers = [layer.name for layer in model.layers]
 if (args.verbose == 1):
@@ -187,6 +181,13 @@ if (args.verbose == 1):
 #layer = layers[1]
 #print("Plotting kernel from layer \'" + layer + "\'")
 #plot_kernels(model, layer)
+
+## "Deconvoluted" version of NN models
+if (args.trun == "deconv"):
+	deconv_model = d_dmodels[args.tmodel](pretrained=args.trained>0, layer=args.tlayer, sz=sz)
+	deconv_model.compile(loss=args.loss, optimizer=optimizer, metrics=['accuracy'])
+## Or the implementation of DeconvNet in Keras
+#deconv_model = DeconvNet(model)
 
 ###########################################
 ## TRAINING/TESTING/DECONV PIPELINES     ##

@@ -28,7 +28,7 @@ msg = "* Loaded weights! (DeconvNet)"
 # The shapes can be extracted from [model to deconvolve].summary().
 
 ## CREDIT: https://gist.github.com/baraldilorenzo/07d7802847aaad0a35d3
-def VGG_16(pretrained=True, weights_path=None, noutputs=num_classes, layer=None, sz=sz):
+def VGG_16(pretrained=True, weights_path=None, noutputs=num_classes, layer="", sz=sz):
 	if (pretrained):
 		weights_path = './data/weights/vgg16_weights.h5'
 
@@ -72,7 +72,7 @@ def VGG_16(pretrained=True, weights_path=None, noutputs=num_classes, layer=None,
 	return model
 
 ## CREDIT: https://blog.plon.io/tutorials/cifar-10-classification-using-keras-tutorial/
-def Conv2(pretrained=True, weights_path=None, noutputs=num_classes, layer=None, sz=sz):
+def Conv2(pretrained=True, weights_path=None, noutputs=num_classes, layer="", sz=sz):
 	if (pretrained):
 		weights_path = './data/weights/conv2_weights.h5'
 
@@ -98,28 +98,88 @@ def Conv2(pretrained=True, weights_path=None, noutputs=num_classes, layer=None, 
 	return model
 
 ## CREDIT: https://blog.plon.io/tutorials/cifar-10-classification-using-keras-tutorial/
-def Conv(pretrained=True, weights_path=None, noutputs=num_classes, layer=None, sz=sz):
+def Conv(pretrained=True, weights_path=None, noutputs=num_classes, layer="", sz=sz):
 	if (pretrained):
 		weights_path = './data/weights/conv_weights.h5'
 
-	inp = Input(batch_shape = (1, sz // 8, sz // 8, 128), name="inp")
-	#inp = Input(batch_shape = (1, sz // 4, sz // 4, 128), name="inp")
-	x = inp
+	layers = ["pool6"]
+	inputs = None
+	x = None
+	if (layer in layers):
+		inp = Input(batch_shape = (1, sz // 8, sz // 8, 128), name="inp")
+		x = inp
+		pos3 = Input(batch_shape = (1, sz // 8, sz // 8, 128), name="pos3")
+		x = UndoMaxPooling2D((1, sz // 4, sz // 4, 128), name="pool6")([x, pos3])
+		inputs = [inp, pos3]
+		outputs = x
+	layers.append("conv6")
+	if (layer in layers):
+		if (layer == "conv6"):
+			inp = Input(batch_shape = (1, sz // 4, sz // 4, 128), name="inp")
+			x = inp
+		x = Deconv2D(128,3,padding='SAME',activation='relu', name="conv6")(x)
+		if (layer == "conv6"):
+			inputs = [inp, pos3]
+	layers.append("conv5")
+	if (layer in layers):
+		if (layer == "conv5"):
+			inp = Input(batch_shape = (1, sz // 4, sz // 4, 128), name="inp")
+			x = inp	
+		x = Deconv2D(128//2,3,padding='SAME',activation='relu', name="conv6")(x)
+		if (layer == "conv5"):
+			inputs = [inp, pos3]
+	layers.append("pool4")
+	if (layer in layers):
+		if (layer == "pool4"):
+			inp = Input(batch_shape = (1, sz // 4, sz // 4, 64), name="inp")
+			x = inp				
+		pos2 = Input(batch_shape = (1, sz // 4, sz // 4, 64), name="pos2")
+		x = UndoMaxPooling2D((1, sz // 4, sz // 4, 64), name="pool4")([x, pos2])
+		if (layer == "pool4"):
+			inputs = [inp, pos2, pos3]
+	layers.append("conv4")
+	if (layer in layers):
+		if (layer == "conv4"):
+			inp = Input(batch_shape = (1, sz // 2, sz // 2, 64), name="inp")
+			x = inp
+		x = Deconv2D(64, 3, padding='SAME', activation="relu", name="conv4")(x)
+		if (layer == "conv4"):
+			inputs = [inp, pos2, pos3]
+	layers.append("conv3")
+	if (layer in layers):
+		if (layer == "conv3"):
+			inp = Input(batch_shape = (1, sz // 2, sz // 2, 64), name="inp")
+			x = inp
+		x = Deconv2D(64//2, 3, padding='SAME', activation="relu", name="conv3")(x)
+		if (layer == "conv3"):
+			inputs = [inp, pos2, pos3]
+	layers.append("pool2")
+	if (layer in layers):
+		if (layer == "pool2"):
+			inp = Input(batch_shape = (1, sz // 2, sz // 2, 32), name="inp")
+			x = inp
+		pos1 = Input(batch_shape = (1, sz // 2, sz // 2, 32), name="pos1")
+		x = UndoMaxPooling2D((1, sz, sz, 32), name="pool2")([x, pos1])
+		if (layer == "pool2"):
+			inputs = [inp, pos1, pos2, pos3]	
+	layers.append("conv2")
+	if (layer in layers):
+		if (layer == "conv2"):
+			inp = Input(batch_shape = (1, sz, sz, 32), name="inp")
+			x = inp
+		x = Deconv2D(32, 3, padding='SAME', activation="relu", name="conv2")(x)
+		if (layer == "conv2"):
+			inputs = [inp, pos1, pos2, pos3]
+	layers.append("conv1")
+	if (layer in layers):
+		if (layer == "conv1"):
+			inp = Input(batch_shape = (1, sz, sz, 32), name="inp")
+			x = inp
+		x = Deconv2D(3, 3, padding='SAME', activation='relu', name="conv1")(x)
+		if (layer == "conv1"):
+			inputs = [inp, pos1, pos2, pos3]
 
-	pos3 = Input(batch_shape = (1, sz // 8, sz // 8, 128), name="pos3")
-	x = UndoMaxPooling2D((1, sz // 4, sz // 4, 128), name="pool6")([x, pos3])
-	x = Deconv2D(128,3,padding='SAME',activation='relu', name="conv6")(x)
-	x = Deconv2D(128//2,3,padding='SAME',activation='relu', name="conv5")(x)
-
-	pos2 = Input(batch_shape = (1, sz // 4, sz // 4, 64), name="pos2")
-	x = UndoMaxPooling2D((1, sz // 2, sz // 2, 64), name="pool4")([x, pos2])
-	x = Deconv2D(64, 3, padding='SAME', activation="relu", name="conv4")(x)
-	x = Deconv2D(64//2, 3, padding='SAME', activation="relu", name="conv3")(x)
-	pos1 = Input(batch_shape = (1, sz // 2, sz // 2, 32), name="pos1")
-	x = UndoMaxPooling2D((1, sz, sz, 32), name="pool2")([x, pos1])
-	x = Deconv2D(32, 3, padding='SAME', activation="relu", name="conv2")(x)
-	x = Deconv2D(3, 3, padding='SAME', activation='relu', name="conv1")(x)
-	model = Model(inputs = [inp, pos1, pos2], outputs= x)#, pos3], outputs = x)
+	model = Model(inputs = inputs, outputs = x)
 
 	if weights_path:
 		print(msg)
@@ -129,7 +189,7 @@ def Conv(pretrained=True, weights_path=None, noutputs=num_classes, layer=None, s
 
 ## CREDIT: Keras training on CIFAR-10 
 ## https://gist.github.com/giuseppebonaccorso/e77e505fc7b61983f7b42dc1250f31c8
-def Vonc(pretrained=True, weights_path=None, noutputs=num_classes, deconv=False, sz=sz, layer=None):
+def Vonc(pretrained=True, weights_path=None, noutputs=num_classes, deconv=False, sz=sz, layer=""):
 	if (pretrained):
 		weights_path = './data/weights/vonc_weights.h5'
 

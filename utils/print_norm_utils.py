@@ -7,6 +7,7 @@ import torch
 import cv2
 from imagenet1000 import imagenet1000
 import sys
+from scipy.misc import imresize
 
 def resize(im, shape):
 	if (len(np.shape(im)) < 4):
@@ -15,9 +16,9 @@ def resize(im, shape):
 	res = np.zeros(shape)
 	for j in range(a):
 		for i in range(d):
-			res[j, :, :, i] = np.resize(im[j, :, :, i], (b, c))
-	if (np.max(res) <= 1):
-		res *= 255.
+			res[j, :, :, i] = imresize(im[j, :, :, i], (b, c))
+	if (np.max(res) > 1):
+		res /= 255.
 	return res
 
 ## CREDIT: https://blog.plon.io/tutorials/cifar-10-classification-using-keras-tutorial/

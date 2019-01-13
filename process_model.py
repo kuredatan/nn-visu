@@ -110,9 +110,15 @@ if (args.optimizer == "rmsprop"):
 
 num_classes = 1000
 
+def print_image(x):
+	plt.imshow(np.resize(x, (sz, sz, 3)))
+	plt.show()
+	raise ValueError
+
 if (args.tmodel == "vgg"):
 	sz = 224
-	preprocess_image = lambda x : preprocess_input(resize(x, (1, sz, sz, 3)))
+	preprocess_image = lambda x : resize(x, (1, sz, sz, 3))
+	#preprocess_input(resize(x, (1, sz, sz, 3)))
 else:
 	sz = 32
 	training_means = [np.mean(X_train[:,:,i].astype('float32')) for i in range(3)]
@@ -257,9 +263,12 @@ def run_nn(datagen, X, Y_c, Y, batch_size, training=False, verbose=True, kmin=10
 		model.save_weights('./data/weights/'+args.tmodel+'_weights.h5')
 	return hist
 
-def process_fmap(out, im, layer="", sz=sz):
+def process_fmap(out, im, layer="", sz=sz, normalize=False):
 	layer = "_"+layer
 	out = np.resize(out, (sz, sz, 3))
+	if (normalize):
+		## Normalization
+		out = (out-np.mean(out))/np.std(out)
 	plt.subplot('121')
 	plt.imshow(out)
 	plt.axis('off')
@@ -272,9 +281,12 @@ def process_fmap(out, im, layer="", sz=sz):
 	plt.xlabel("Input image")
 	plt.show()
 
-def save_fmap(out, layer="", sz=sz):
+def save_fmap(out, layer="", sz=sz, normalize=False):
 	layer = "_"+layer
 	out = np.resize(out, (sz, sz, 3))
+	if (normalize):
+		## Normalization
+		out = (out-np.mean(out))/np.std(out)
 	plt.imshow(out)
 	plt.axis('off')
 	plt.title("Feature map for layer " + layer[1:])
@@ -321,12 +333,13 @@ if (args.trun == "deconv"):
 	print("** Layer: " + args.tlayer + " **")
 	im = preprocess_image(np.expand_dims(X_test[im_nb, :, :, :], axis=0))
 	out = model.predict([im])
-	print(len(out))
-	print(list(map(np.shape, out)))
+	if (args.verbose == 1):
+		print("#outputs = " + str(len(out)) + " of sizes:")
+		print(list(map(np.shape, out)))
 	## Feature images
 	out = deconv_model.predict(out)
 	if (args.verbose):
-		process_fmap(out, im, layer=args.tlayer)
+		process_fmap(out, im, layer=args.tlayer, normalize=(args.tmodel == "vgg"))
 	save_fmap(out, layer=args.tlayer)
 	## Weights
 	weight = model.layers[layer_nb].get_weights()
@@ -334,7 +347,7 @@ if (args.trun == "deconv"):
 		for i in range(len(weight)):
 			weight = weight[i]*255.
 			if (args.verbose):
-				process_fmap(weight, im, layer="weight" + str(i) + "_"+args.tlayer)
+				process_fmap(weight, im, layer="weight" + str(i) + "_"+args.tlayer, normalize=(args.tmodel == "vgg"))
 			save_fmap(weight, layer="weight" + str(i) + "_"+args.tlayer)
 	else:
 		print("Layer " + args.tlayer + " has no weights!")

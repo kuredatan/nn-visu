@@ -27,3 +27,10 @@ class Interp(layers.Layer):
         return config
 
 
+## Reshape layer
+#try:
+#	x = Lambda(lambda image: ktf.image.resize_images(image, (224, 224)))(inp)
+#except :
+#	# if you have older version of tensorflow
+#	x = Lambda(lambda image: ktf.image.resize_images(image, 224, 224))(inp)
+

@@ -20,9 +20,6 @@ sz = 32
 num_classes = 1000
 msg = "* Loaded weights! (DeconvNet)"
 
-#If you want to reconstruct from a single feature map / activation, you can
-# simply set all the others to 0.
-
 # The Deconv2D layers should have the same name as the associated Conv2D layers.
 # The shapes can be extracted from [model to deconvolve].summary().
 
@@ -31,38 +28,127 @@ def VGG_16(pretrained=True, weights_path=None, noutputs=num_classes, layer="", s
 	if (pretrained):
 		weights_path = './data/weights/vgg16_weights.h5'
 
-	inp = Input(batch_shape = (1, sz // 4, sz // 4, 128*2*2))
-	x = inp
+	pos1, pos2, pos3, pos4, pos5 = [None]*5
 
-	pos5 = Input(batch_shape = (1, sz // 4, sz // 4, 128*2))
-	x = UndoMaxPooling2D((1, sz, sz, 128*2), name="block5_pool")([x, pos5])
-	x = Deconv2D(512//2,3,padding='SAME',activation='relu', name="block5_conv3")(x)
-	x = Deconv2D(512//2,3,padding='SAME',activation='relu', name="block5_conv2")(x)
-	x = Deconv2D(512//2,3,padding='SAME',activation='relu', name="block5_conv1")(x)
+	layers = ["block5_pool"]
+	if (layer in layers):
+		inp = Input(batch_shape = (1, sz // 32, sz // 32, 128*2*2))
+		x = inp
+		pos5 = Input(batch_shape = (1, sz // 32, sz // 32, 128*2*2))
+		x = UndoMaxPooling2D((1, sz // 16, sz // 16, 128*2*2), name="block5_pool")([x, pos5])
+	layers.append("block5_conv3")
+	if (layer in layers):
+		if (layer == "block5_conv3"):
+			inp = Input(batch_shape = (1, sz // 16, sz // 16, 128*2*2))
+			x = inp
+		x = Deconv2D(512,3,padding='SAME',activation='relu', name="block5_conv3")(x)
+	layers.append("block5_conv2")
+	if (layer in layers):
+		if (layer == "block5_conv2"):
+			inp = Input(batch_shape = (1, sz // 16, sz // 16, 128*2*2))
+			x = inp
+		x = Deconv2D(512,3,padding='SAME',activation='relu', name="block5_conv2")(x)
+	layers.append("block5_conv1")
+	if (layer in layers):
+		if (layer == "block5_conv1"):
+			inp = Input(batch_shape = (1, sz // 16, sz // 16, 128*2*2))
+			x = inp
+		x = Deconv2D(512,3,padding='SAME',activation='relu', name="block5_conv1")(x)
+	layers.append("block4_pool")
+	if (layer in layers):
+		if (layer == "block4_pool"):
+			inp = Input(batch_shape = (1, sz // 16, sz // 16, 128*2*2))
+			x = inp
+		pos4 = Input(batch_shape = (1, sz // 16, sz // 16, 128*2*2))
+		x = UndoMaxPooling2D((1, sz // 8, sz // 8, 128*2*2), name="block4_pool")([x, pos4])
+	layers.append("block4_conv3")
+	if (layer in layers):
+		if (layer == "block4_conv3"):
+			inp = Input(batch_shape = (1, sz // 8, sz // 8, 128*2*2))
+			x = inp
+		x = Deconv2D(512,3,padding='SAME',activation='relu', name="block4_conv3")(x)
+	layers.append("block4_conv2")
+	if (layer in layers):
+		if (layer == "block4_conv2"):
+			inp = Input(batch_shape = (1, sz // 8, sz // 8, 128*2*2))
+			x = inp
+		x = Deconv2D(256*2,3,padding='SAME',activation='relu', name="block4_conv2")(x)
+	layers.append("block4_conv1")
+	if (layer in layers):
+		if (layer == "block4_conv1"):
+			inp = Input(batch_shape = (1, sz // 8, sz // 8, 128*2*2))
+			x = inp
+		x = Deconv2D(256,3,padding='SAME',activation='relu', name="block4_conv1")(x)
+	layers.append("block3_pool")
+	if (layer in layers):
+		if (layer == "block3_pool"):
+			inp = Input(batch_shape = (1, sz // 8, sz // 8, 128*2))
+			x = inp
+		pos3 = Input(batch_shape = (1, sz // 8, sz // 8, 128*2))
+		x = UndoMaxPooling2D((1, sz // 4, sz // 4, 128*2), name="block3_pool")([x, pos3])
+	layers.append("block3_conv3")
+	if (layer in layers):
+		if (layer == "block3_conv3"):
+			inp = Input(batch_shape = (1, sz // 4, sz // 4, 128*2))
+			x = inp
+		x = Deconv2D(256,3,padding='SAME',activation='relu', name="block3_conv3")(x)
+	layers.append("block3_conv2")
+	if (layer in layers):
+		if (layer == "block3_conv2"):
+			inp = Input(batch_shape = (1, sz // 4, sz // 4, 128*2))
+			x = inp
+		x = Deconv2D(256,3,padding='SAME',activation='relu', name="block3_conv2")(x)
+	layers.append("block3_conv1")
+	if (layer in layers):
+		if (layer == "block3_conv1"):
+			inp = Input(batch_shape = (1, sz // 4, sz // 4, 128*2))
+			x = inp
+		x = Deconv2D(256//2,3,padding='SAME',activation='relu', name="block3_conv1")(x)
+	layers.append("block2_pool")
+	if (layer in layers):
+		if (layer == "block2_pool"):
+			inp = Input(batch_shape = (1, sz // 4, sz // 4, 128))
+			x = inp
+		pos2 = Input(batch_shape = (1, sz // 4, sz // 4, 128))
+		x = UndoMaxPooling2D((1, 112, 112, 128), name="block2_pool")([x, pos2])
+	layers.append("block2_conv2")
+	if (layer in layers):
+		if (layer == "block2_conv2"):
+			inp = Input(batch_shape = (1, 112, 112, 128))
+			x = inp
+		x = Deconv2D(128,3,padding='SAME',activation='relu', name="block2_conv2")(x)
+	layers.append("block2_conv1")
+	if (layer in layers):
+		if (layer == "block2_conv1"):
+			inp = Input(batch_shape = (1, 112, 112, 128))
+			x = inp
+		x = Deconv2D(128//2,3,padding='SAME',activation='relu', name="block2_conv1")(x)
+	layers.append("block1_pool")
+	if (layer in layers):
+		if (layer == "block1_pool"):
+			inp = Input(batch_shape = (1, 112, 112, 64))
+			x = inp
+		pos1 = Input(batch_shape = (1, 112, 112, 64))
+		x = UndoMaxPooling2D((1, sz, sz, 64), name="block1_pool")([x, pos1])
+	layers.append("block1_conv2")
+	if (layer in layers):
+		if (layer == "block1_conv2"):
+			inp = Input(batch_shape = (1, sz, sz, 64))
+			x = inp
+		x = Deconv2D(64,3,padding='SAME',activation='relu', name="block1_conv2")(x)
+	layers.append("block1_conv1")
+	if (layer in layers):
+		if (layer == "block1_conv1"):
+			inp = Input(batch_shape = (1, sz, sz, 64))
+			x = inp
+		x = Deconv2D(3,3,padding='SAME',activation='relu', name="block1_conv1")(x)
 
-	pos4 = Input(batch_shape = (1, sz // 4, sz // 4, 128))
-	x = UndoMaxPooling2D((1, sz, sz, 128), name="block4_pool")([x, pos4])
-	x = Deconv2D(256//2,3,padding='SAME',activation='relu', name="block4_conv3")(x)
-	x = Deconv2D(256//2,3,padding='SAME',activation='relu', name="block4_conv2")(x)
-	x = Deconv2D(256//2,3,padding='SAME',activation='relu', name="block4_conv1")(x)
+	inputs = [inp]
+	for p in [pos1, pos2, pos3, pos4, pos5]:
+		if (p != None):
+			inputs.append(p)
 
-	pos3 = Input(batch_shape = (1, sz // 4, sz // 4, 64))
-	x = UndoMaxPooling2D((1, sz, sz, 64), name="block3_pool")([x, pos3])
-	x = Deconv2D(256//2,3,padding='SAME',activation='relu', name="block3_conv3")(x)
-	x = Deconv2D(256//2,3,padding='SAME',activation='relu', name="block3_conv2")(x)
-	x = Deconv2D(256//2,3,padding='SAME',activation='relu', name="block3_conv1")(x)
-
-	pos2 = Input(batch_shape = (1, sz // 4, sz // 4, 32))
-	x = UndoMaxPooling2D((1, sz, sz, 32), name="block2_pool")([x, pos2])
-	x = Deconv2D(128//2,3,padding='SAME',activation='relu', name="block2_conv2")(x)
-	x = Deconv2D(128//2,3,padding='SAME',activation='relu', name="block2_conv1")(x)
-
-	pos1 = Input(batch_shape = (1, sz // 4, sz // 4, 16))
-	x = UndoMaxPooling2D((1, sz, sz, 16), name="block1_pool")([x, pos1])
-	x = Deconv2D(64//2,3,padding='SAME',activation='relu', name="block1_conv2")(x)
-	x = Deconv2D(64//2,3,padding='SAME',activation='relu', name="block1_conv1")(x)
-
-	model = Model(inputs = [inp, pos1, pos2, pos3, pos4, pos5], outputs = x)
+	model = Model(inputs = inputs, outputs = x)
 
 	if weights_path:
 		print(msg)
@@ -118,12 +204,9 @@ def Conv2(pretrained=True, weights_path=None, noutputs=num_classes, layer="", sz
 		x = Deconv2D(3, 3, padding='SAME', activation="relu", name="conv1-1")(x)
 
 	inputs = [inp]
-	if (pos1 != None):
-		inputs.append(pos1)
-	if (pos2 != None):
-		inputs.append(pos2)
-	if (pos3 != None):
-		inputs.append(pos3)
+	for p in [pos1, pos2, pos3]:
+		if (p != None):
+			inputs.append(p)
 
 	model = Model(inputs = inputs, outputs = x)
 
@@ -198,12 +281,9 @@ def Conv(pretrained=True, weights_path=None, noutputs=num_classes, layer="", sz=
 		x = Deconv2D(3, 3, padding='SAME', activation='relu', name="conv1")(x)
 
 	inputs = [inp]
-	if (pos1 != None):
-		inputs.append(pos1)
-	if (pos2 != None):
-		inputs.append(pos2)
-	if (pos3 != None):
-		inputs.append(pos3)
+	for p in [pos1, pos2, pos3]:
+		if (p != None):
+			inputs.append(p)
 
 	model = Model(inputs = inputs, outputs = x)
 
@@ -269,12 +349,9 @@ def Vonc(pretrained=True, weights_path=None, noutputs=num_classes, deconv=False,
 		x = Deconv2D(3, 3, padding='SAME', activation='relu', name="block1_conv1")(x)
 
 	inputs = [inp]
-	if (pos1 != None):
-		inputs.append(pos1)
-	if (pos2 != None):
-		inputs.append(pos2)
-	if (pos3 != None):
-		inputs.append(pos3)
+	for p in [pos1, pos2, pos3]:
+		if (p != None):
+			inputs.append(p)
 
 	model = Model(inputs = inputs, outputs = x)
 

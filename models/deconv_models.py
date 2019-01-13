@@ -102,82 +102,72 @@ def Conv(pretrained=True, weights_path=None, noutputs=num_classes, layer="", sz=
 	if (pretrained):
 		weights_path = './data/weights/conv_weights.h5'
 
+	pos1, pos2, pos3 = [None]*3
+
 	layers = ["pool6"]
-	inputs = None
-	x = None
 	if (layer in layers):
 		inp = Input(batch_shape = (1, sz // 8, sz // 8, 128), name="inp")
 		x = inp
 		pos3 = Input(batch_shape = (1, sz // 8, sz // 8, 128), name="pos3")
 		x = UndoMaxPooling2D((1, sz // 4, sz // 4, 128), name="pool6")([x, pos3])
-		inputs = [inp, pos3]
-		outputs = x
 	layers.append("conv6")
 	if (layer in layers):
 		if (layer == "conv6"):
 			inp = Input(batch_shape = (1, sz // 4, sz // 4, 128), name="inp")
 			x = inp
 		x = Deconv2D(128,3,padding='SAME',activation='relu', name="conv6")(x)
-		if (layer == "conv6"):
-			inputs = [inp, pos3]
 	layers.append("conv5")
 	if (layer in layers):
 		if (layer == "conv5"):
 			inp = Input(batch_shape = (1, sz // 4, sz // 4, 128), name="inp")
 			x = inp	
-		x = Deconv2D(128//2,3,padding='SAME',activation='relu', name="conv6")(x)
-		if (layer == "conv5"):
-			inputs = [inp, pos3]
+		x = Deconv2D(128//2,3,padding='SAME',activation='relu', name="conv5")(x)
 	layers.append("pool4")
 	if (layer in layers):
 		if (layer == "pool4"):
 			inp = Input(batch_shape = (1, sz // 4, sz // 4, 64), name="inp")
 			x = inp				
 		pos2 = Input(batch_shape = (1, sz // 4, sz // 4, 64), name="pos2")
-		x = UndoMaxPooling2D((1, sz // 4, sz // 4, 64), name="pool4")([x, pos2])
-		if (layer == "pool4"):
-			inputs = [inp, pos2, pos3]
+		x = UndoMaxPooling2D((1, sz // 2, sz // 2, 64), name="pool4")([x, pos2])
 	layers.append("conv4")
 	if (layer in layers):
 		if (layer == "conv4"):
 			inp = Input(batch_shape = (1, sz // 2, sz // 2, 64), name="inp")
 			x = inp
 		x = Deconv2D(64, 3, padding='SAME', activation="relu", name="conv4")(x)
-		if (layer == "conv4"):
-			inputs = [inp, pos2, pos3]
 	layers.append("conv3")
 	if (layer in layers):
 		if (layer == "conv3"):
 			inp = Input(batch_shape = (1, sz // 2, sz // 2, 64), name="inp")
 			x = inp
 		x = Deconv2D(64//2, 3, padding='SAME', activation="relu", name="conv3")(x)
-		if (layer == "conv3"):
-			inputs = [inp, pos2, pos3]
 	layers.append("pool2")
 	if (layer in layers):
 		if (layer == "pool2"):
 			inp = Input(batch_shape = (1, sz // 2, sz // 2, 32), name="inp")
 			x = inp
 		pos1 = Input(batch_shape = (1, sz // 2, sz // 2, 32), name="pos1")
-		x = UndoMaxPooling2D((1, sz, sz, 32), name="pool2")([x, pos1])
-		if (layer == "pool2"):
-			inputs = [inp, pos1, pos2, pos3]	
+		x = UndoMaxPooling2D((1, sz, sz, 32), name="pool2")([x, pos1])	
 	layers.append("conv2")
 	if (layer in layers):
 		if (layer == "conv2"):
 			inp = Input(batch_shape = (1, sz, sz, 32), name="inp")
 			x = inp
 		x = Deconv2D(32, 3, padding='SAME', activation="relu", name="conv2")(x)
-		if (layer == "conv2"):
-			inputs = [inp, pos1, pos2, pos3]
 	layers.append("conv1")
 	if (layer in layers):
 		if (layer == "conv1"):
 			inp = Input(batch_shape = (1, sz, sz, 32), name="inp")
 			x = inp
 		x = Deconv2D(3, 3, padding='SAME', activation='relu', name="conv1")(x)
-		if (layer == "conv1"):
-			inputs = [inp, pos1, pos2, pos3]
+
+	inputs = [inp]
+	if (pos1 != None):
+		inputs.append(pos1)
+	if (pos2 != None):
+		inputs.append(pos2)
+	if (pos3 != None):
+		inputs.append(pos3)
 
 	model = Model(inputs = inputs, outputs = x)
 

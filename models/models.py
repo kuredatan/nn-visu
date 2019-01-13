@@ -141,7 +141,7 @@ def Conv2(pretrained=True, weights_path=None, noutputs=num_classes, deconv=False
 
 	if (deconv):
 		outputs = [x]
-		layers = ['conv1-1', 'conv1-1']
+		layers = ['conv1-1', 'conv1-2']
 		if (not layer in layers):
 			outputs.append(pos1)
 		layers += ['pool1', 'conv2-1', "conv2-2"]

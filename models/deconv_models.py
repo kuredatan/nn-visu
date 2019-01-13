@@ -81,39 +81,41 @@ def Conv2(pretrained=True, weights_path=None, noutputs=num_classes, layer="", sz
 	if (layer in layers):
 		inp = Input(batch_shape = (1, sz // 4, sz // 4, 64))
 		x = inp
-		pos2 = Input(batch_shape = (1, sz // 4, sz // 4, 32))
-		x = UndoMaxPooling2D((1, sz, sz, 32), name="pool2")([x, pos2])
+		pos2 = Input(batch_shape = (1, sz // 4, sz // 4, 64))
+		#x = UndoMaxPooling2D((1, sz, sz, 32), name="pool2")([x, pos2])
 	layers.append("conv2-2")
 	if (layer in layers):
 		if (layer == "conv2-2"):
-			inp = Input(batch_shape = (1, sz // 4, sz // 4, 64))
+			inp = Input(batch_shape = (1, sz // 2, sz // 2, 64))
 			x = inp
-		x = Deconv2D(64//2,3,padding='SAME',activation='relu', name="conv2-2")(x)
+		x = Deconv2D(64,3,padding='SAME',activation='relu', name="conv2-2")(x)
 	layers.append("conv2-1")
 	if (layer in layers):
 		if (layer == "conv2-1"):
-			inp = Input(batch_shape = (1, sz // 4, sz // 4, 64))
+			inp = Input(batch_shape = (1, sz // 2, sz // 2, 64))
 			x = inp
 		x = Deconv2D(64//2,3,padding='SAME',activation='relu', name="conv2-1")(x)
 	layers.append("pool1")
 	if (layer in layers):
 		if (layer == "pool1"):
-			inp = Input(batch_shape = (1, sz // 4, sz // 4, 64))
+			inp = Input(batch_shape = (1, sz // 2, sz // 2, 32))
 			x = inp
-		pos1 = Input(batch_shape = (1, sz // 2, sz // 2, 16))
-		x = UndoMaxPooling2D((1, sz, sz, 16), name="pool1")([x, pos1])
+		pos1 = Input(batch_shape = (1, sz // 2, sz // 2, 32))
+		## "Deconvolution" of Dropout layers
+		x = Interp((16, 16))(x)
+		x = UndoMaxPooling2D((1, sz, sz, 32), name="pool1")([x, pos1])
 	layers.append("conv1-2")
 	if (layer in layers):
 		if (layer == "conv1-2"):
-			inp = Input(batch_shape = (1, sz // 4, sz // 4, 64))
+			inp = Input(batch_shape = (1, sz, sz, 32))
 			x = inp
-		x = Deconv2D(32//2, 3, padding='SAME', activation="relu", name="conv1-2")(x)
+		x = Deconv2D(32, 3, padding='SAME', activation="relu", name="conv1-2")(x)
 	layers.append("conv1-1")
 	if (layer in layers):
 		if (layer == "conv1-1"):
-			inp = Input(batch_shape = (1, sz // 4, sz // 4, 64))
+			inp = Input(batch_shape = (1, sz, sz, 32))
 			x = inp
-		x = Deconv2D(32//2, 3, padding='SAME', activation="relu", name="conv1-1")(x)
+		x = Deconv2D(3, 3, padding='SAME', activation="relu", name="conv1-1")(x)
 
 	inputs = [inp]
 	if (pos1 != None):

@@ -25,6 +25,7 @@ from imagenet1000 import imagenet1000
 from cats import dict_labels_cats
 from utils import get_deconv_images, plot_deconv, plot_max_activation, find_top9_mean_act
 import matplotlib.pyplot as plt
+from sklearn.metrics import classification_report, confusion_matrix
 
 ## Training models
 # python2.7 process_model.py --tmodel vonc --tdata CIFAR-10 --trun training --trained 0 --epoch 250 --lr 0.01 --optimizer Adam --batch 64
@@ -198,14 +199,12 @@ if (args.trun == "deconv"):
 		raise ValueError
 	deconv_model = d_dmodels[args.tmodel](pretrained=args.trained>0, layer=args.tlayer, sz=sz)
 	deconv_model.compile(loss=args.loss, optimizer=optimizer, metrics=['accuracy'])
-## Or the implementation of DeconvNet in Keras
-#deconv_model = DeconvNet(model)
 
 ###########################################
 ## TRAINING/TESTING/DECONV PIPELINES     ##
 ###########################################
 
-def run_nn(datagen, X, Y_c, Y, batch_size, training=False, verbose=True, kmin=10):
+def run_nn(datagen, X, Y_c, Y, batch_size, training=False, kmin=10):
 	datagen.fit(X)
 	labels = []
 	n = np.shape(X)[0]
@@ -221,10 +220,7 @@ def run_nn(datagen, X, Y_c, Y, batch_size, training=False, verbose=True, kmin=10
 			if (args.verbose):
 				print("Batch #" + str(batch+1) + "/" + str(n/batch_size+1))
 			predictions = model.predict(x_batch, batch_size, verbose=1)
-			try:
-				pred_ = [np.argmax(predictions[0][i, :]) for i in range(len(predictions))]
-			except:
-				pred_ = [np.argmax(predictions[i, :]) for i in range(len(predictions))]
+			pred_ = [np.argmax(predictions[i, :]) for i in range(len(predictions))]
 			labels += pred_
 			Y_batch = [np.argmax(y_batch[i, :]) for i in range(len(predictions))]
 			Y_test += Y_batch
@@ -236,17 +232,22 @@ def run_nn(datagen, X, Y_c, Y, batch_size, training=False, verbose=True, kmin=10
 				break
 			else:
 				batch += 1
+	if (args.tdata == "CATS" and args.trun == "testing"):
+		target_names = list(set([imagenet1000[l] for l in dict_labels_cats.values()]))
+	else:
+		target_names = imagenet1000.keys()
+	print('\n* * * Confusion Matrix')
+	print(confusion_matrix(Y_test, labels))
+	print('\n* * * Classification Report')
+	print(classification_report(Y_test, labels, target_names=list(map(lambda x : imagenet1000[x], list(set(Y_test))))))
 	if (not training):
-		if (verbose):
+		if (args.verbose == 1):
 			acc = np.sum(np.array(labels) == np.array(Y_test))/float(len(labels))
 			if (args.verbose):
 				print(model.summary())
 			k = min(np.shape(labels)[0], kmin)
 			pred = [imagenet1000[label] for label in labels]
-			if (args.tdata == "CATS"):
-				real = [imagenet1000[y] for y in Y_test]
-			else:
-				real = [imagenet1000[y] for y in Y_test]
+			real = [imagenet1000[y] for y in Y_test]
 			print("")
 			print("PREDICTED" + "\t"*3 + "REAL LABELS")
 			for i in range(k):
@@ -254,7 +255,7 @@ def run_nn(datagen, X, Y_c, Y, batch_size, training=False, verbose=True, kmin=10
 			print('')
 			print('* ACCURACY %.2f' % acc)
 		return labels
-	if (verbose):
+	if (args.verbose == 1):
 		acc = hist.history["acc"][-1]
 		loss = hist.history["loss"][-1]
 		print("ACCURACY\t%.3f" % (acc))
@@ -319,14 +320,14 @@ datagen_test = ImageDataGenerator(
 )
 
 if (args.trun == "training"):
-	hist = run_nn(datagen_train, X_train, Y_train_c, Y_train, args.batch, training=True, verbose=True)
-	labels = run_nn(datagen_train, X_val, Y_val_c, Y_val, args.batch, training=False, verbose=True)
+	hist = run_nn(datagen_train, X_train, Y_train_c, Y_train, args.batch, training=True)
+	labels = run_nn(datagen_train, X_val, Y_val_c, Y_val, args.batch, training=False)
 if (args.trun == "testing"):
 	k = min(1000, np.shape(X_test)[0])
 	X_test = X_test[:k, :, :, :]
 	Y_test_c = Y_test_c[:k, :]
 	Y_test = Y_test[:k]
-	labels = run_nn(datagen_test, X_test, Y_test_c, Y_test, args.batch, training=False, verbose=True)
+	labels = run_nn(datagen_test, X_test, Y_test_c, Y_test, args.batch, training=False)
 if (args.trun == "deconv"):
 	im_nb = 0
 	layer_nb = layers.index(args.tlayer)

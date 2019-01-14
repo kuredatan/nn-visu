@@ -1,55 +1,61 @@
+#coding: utf-8
+
 from __future__ import print_function
-import keras.backend as K
+from keras import backend as K
 import numpy as np
 import matplotlib.pylab as plt
 import cPickle as pickle
 import sys
 import os
+from tqdm import tqdm
 
+# SOURCE: Adapted from https://blog.keras.io/how-convolutional-neural-networks-see-the-world.html
+def grad_ascent(im, model, index, layer_name="", batch_size=32, niter=20, step=100):
+	layer_dict = dict([(layer.name, layer) for layer in model.layers])
+	if (layer_name):
+	## Maximise a filter activation
+		layer_output = layer_dict[layer_name].output
+		loss = K.mean(layer_output[::, index])
+	else:
+	## Maximise a specific class
+		loss = K.mean(model.output[:, index])
+	grads = K.gradients(loss, model.input)[0]
+	grads /= (K.sqrt(K.mean(K.square(grads))) + 1e-5)
+	iterate = K.function([model.input], [loss, grads])
+	## Start from a gray noisy image
+	im_ = np.random.random(np.shape(im)) * 20 + 128.
+	## Gradient ascent
+	for i in tqdm(range(niter)):
+		loss_value, grads_value = iterate([im_])
+		im_ += grads_value * step
+	print("* Final loss: " + str(loss_value))
+	return im_
 
-def find_top9_mean_act(data, Dec, target_layer, feat_map, batch_size=32):
-    """
-    Find images with highest mean activation
-
-    args:  data (numpy array) the image data
-           shape : (n_samples, n_channels, img_dim1, img_dim2)
-
-           Dec (DeconvNet) instance of the DeconvNet class
-
-           target_layer (str) Layer name we want to visualise
-
-           feat_map (int) index of the filter to visualise
-
-           batch_size (int) batch size
-
-    returns: top9 (numpy array) index of the top9 images that activate feat_map
-    """
-
-    # Theano function to get the layer output
-    T_in, T_out = Dec[Dec.model.layers[0].name].input, Dec[target_layer].output
-    if (str(type(T_out)) != "<type 'list'>"):
-         T_out = [T_out]
-    get_activation = K.function([T_in], T_out)
-
-    list_max = []
-    # Loop over batches and store the max activation value for each
-    # image in data for the target layer and target feature map
-    for nbatch in range(data.shape[0] / batch_size):
-        sys.stdout.write("\rProcessing batch %s/%s\n" %
-                         (nbatch + 1, len(range(data.shape[0] / batch_size))))
-        sys.stdout.flush()
-        X = data[nbatch * batch_size: (nbatch + 1) * batch_size]
-	X = X.transpose(0, 3, 2, 1)
-        out = Dec.model.predict(X)
-        X_activ = np.array(get_activation([X]))[:, feat_map, ::]
-        #X_sum = np.sum(X_activ, axis=(1,2))
-	X_sum = np.sum(X_activ, axis=(2,3))
-	list_max += X_sum.tolist()
-    # Only keep the top 9 activations
-    list_max = np.array(list_max).flatten()
-    i_sort = np.argsort(list_max).tolist()
-    top9 = i_sort[-9:]
-    return top9
+def find_top9_mean_act(data, model, deconv_model,batch_size, feat_map, target_layer):
+	# Theano function to get the layer output
+	names = list(map(lambda xx : xx.name, deconv_model.layers))
+	_in, _out = list(map(lambda x : names.index(x), [model.layers[0].name, target_layer]))
+	T_in, T_out = deconv_model.layers[_in].input, deconv_model.layers[_out].output
+	if (str(type(T_out)) != "<type 'list'>"):
+		T_out = [T_out]
+	get_activation = K.function([T_in], T_out)
+	list_max = []
+	# Loop over batches and store the max activation value for each
+	# image in data for the target layer and target feature map
+	for nbatch in range(data.shape[0] / batch_size):
+		sys.stdout.write("\rProcessing batch %s/%s\n" %
+				 (nbatch + 1, len(range(data.shape[0] / batch_size))))
+		sys.stdout.flush()
+		X = data[nbatch * batch_size: (nbatch + 1) * batch_size]
+		out = model.predict(X)
+		X_activ = np.array(get_activation([X]))[:, feat_map, ::]
+		X_sum = np.sum(X_activ, axis=(1,2))
+		list_max += X_sum.tolist()
+	# Only keep the top 9 activations
+	list_max = np.array(list_max).flatten()
+	i_sort = np.argsort(list_max).tolist()
+	top9 = i_sort[-9:]
+	return top9
 
 
 def get_deconv_images(d_act_path, d_deconv_path, data, Dec):

@@ -14,6 +14,7 @@ from random import sample
 from copy import deepcopy
 from print_norm_utils import print_images, plot_kernels, normalize_input, query_yes_no, load_input, resize
 from keras.applications.vgg16 import preprocess_input
+import keras.backend as K
 import cPickle as pickle
 import models
 import deconv_models
@@ -23,7 +24,7 @@ import cv2
 import os
 from imagenet1000 import imagenet1000
 from cats import dict_labels_cats
-from utils import get_deconv_images, plot_deconv, plot_max_activation, find_top9_mean_act
+from utils import get_deconv_images, plot_deconv, plot_max_activation, find_top9_mean_act, grad_ascent
 import matplotlib.pyplot as plt
 from sklearn.metrics import classification_report, confusion_matrix
 
@@ -204,7 +205,7 @@ if (args.trun == "deconv"):
 ## TRAINING/TESTING/DECONV PIPELINES     ##
 ###########################################
 
-def run_nn(datagen, X, Y_c, Y, batch_size, training=False, kmin=10):
+def run_nn(datagen, X, Y_c, Y, batch_size, X_val=None, Y_val_c=None, training=False, kmin=10):
 	datagen.fit(X)
 	labels = []
 	n = np.shape(X)[0]
@@ -213,7 +214,9 @@ def run_nn(datagen, X, Y_c, Y, batch_size, training=False, kmin=10):
 	batch = 0
 	if (training):
 		hist = model.fit_generator(datagen.flow(X, Y_c, batch_size=batch_size), verbose=1,
-			epochs=epochs,shuffle=True,steps_per_epoch=np.shape(X)[0]//batch_size, 
+			epochs=epochs,shuffle=True,steps_per_epoch=np.shape(X)[0]//batch_size,
+			validation_data=datagen.flow(X_val, Y_val_c, batch_size=batch_size),
+			validation_steps=np.shape(X_val)[0]//batch_size,
 			callbacks=[EarlyStopping(monitor="loss", min_delta=0.001, patience=3)])
 	else:
 		for x_batch, y_batch in datagen.flow(X, Y_c, batch_size=batch_size):
@@ -260,6 +263,28 @@ def run_nn(datagen, X, Y_c, Y, batch_size, training=False, kmin=10):
 		loss = hist.history["loss"][-1]
 		print("ACCURACY\t%.3f" % (acc))
 		print("LOSS\t\t%.3f" % (loss))
+	## https://towardsdatascience.com/visualizing-intermediate-activation-in-convolutional-neural-networks-with-keras-260b36d60d0
+	## Loss curves
+	# TODO testing
+	acc = hist.history['acc']
+	val_acc = hist.history['val_acc']
+	loss = hist.history['loss']
+	val_loss = hist.history['val_loss']
+	epochs = range(1, len(acc) + 1)
+	plt.subplot('121')
+	plt.plot(epochs, acc, 'bo', label='Training acc')
+	plt.plot(epochs, val_acc, 'b', label='Validation acc')
+	plt.title('Training and validation accuracy')
+	plt.legend()
+	plt.subplot('122')
+	plt.plot(epochs, loss, 'ro', label='Training loss')
+	plt.plot(epochs, val_loss, 'r', label='Validation loss')
+	plt.title('Training and validation loss')
+	plt.legend()
+	if (args.verbose):
+		plt.show()
+	if (query_yes_no("Save loss/accuracy curves?", default="yes")):
+		plt.savefig(args.tmodel+"_"+args.tdata+"_loss_acc_curves.png", bbox_inches="tight")
 	if (query_yes_no("Save weights?", default="yes")):
 		model.save_weights('./data/weights/'+args.tmodel+'_weights.h5')
 	return hist
@@ -292,6 +317,34 @@ def save_fmap(out, layer="", sz=sz, normalize=False):
 	plt.axis('off')
 	plt.title("Feature map for layer " + layer[1:])
 	if (query_yes_no("Save feature map?", default="yes")):
+		print("Saved in Figures/"+args.tmodel+"/"+args.tmodel+"_feature_map_layer" + layer + ".png")
+		plt.savefig("Figures/"+args.tmodel+"/"+args.tmodel+"_feature_map_layer" + layer + ".png", bbox_inches="tight")
+
+def save_inputs(filters, layer='', class_='', sz=sz, normalize=True):
+	fig = plt.figure(figsize=(20,20))
+	plt.axis('off')
+	n = len(filters)
+	for i in range(n):
+		plt.subplot('1'+str(n)+str(i))
+		plt.axis('off')
+		x = np.resize(filters[i], (sz, sz, 3))
+		if (normalize):
+			# SOURCE: https://blog.keras.io/how-convolutional-neural-networks-see-the-world.html
+			x -= x.mean()
+			x /= (x.std() + 1e-5)
+			x *= 0.1
+			x += 0.5
+			x = np.clip(x, 0, 1)
+			x *= 255
+			x = np.clip(x, 0, 255).astype('uint8')
+		plt.imshow(x)
+	if (layer):
+		plt.title("Reconstructed inputs for maximizing activation in layer " + layer)
+	if (class_):
+		plt.title("Reconstructed inputs for maximizing activation in class " + class_)
+	plt.show()
+	if (query_yes_no("Save feature map?", default="yes")):
+		print("Saved in Figures/"+args.tmodel+"/"+args.tmodel+"_feature_map_layer" + layer + ".png")
 		plt.savefig("Figures/"+args.tmodel+"/"+args.tmodel+"_feature_map_layer" + layer + ".png", bbox_inches="tight")
 
 ## Generator for training data
@@ -320,8 +373,7 @@ datagen_test = ImageDataGenerator(
 )
 
 if (args.trun == "training"):
-	hist = run_nn(datagen_train, X_train, Y_train_c, Y_train, args.batch, training=True)
-	labels = run_nn(datagen_train, X_val, Y_val_c, Y_val, args.batch, training=False)
+	hist = run_nn(datagen_train, X_train, Y_train_c, Y_train, args.batch, X_val, Y_val_c, training=True)
 if (args.trun == "testing"):
 	k = min(1000, np.shape(X_test)[0])
 	X_test = X_test[:k, :, :, :]
@@ -334,6 +386,7 @@ if (args.trun == "deconv"):
 	print("** Layer: " + args.tlayer + " **")
 	im = preprocess_image(np.expand_dims(X_test[im_nb, :, :, :], axis=0))
 	out = model.predict([im])
+	#save_fmap(out, layer="im="+str(im_nb)+"_output_model_" + args.tlayer)
 	if (args.verbose == 1):
 		print("#outputs = " + str(len(out)) + " of sizes:")
 		print(list(map(np.shape, out)))
@@ -341,7 +394,7 @@ if (args.trun == "deconv"):
 	out = deconv_model.predict(out)
 	if (args.verbose):
 		process_fmap(out, im, layer=args.tlayer, normalize=(args.tmodel == "vgg"))
-	save_fmap(out, layer=args.tlayer)
+	#save_fmap(out, layer="im="+str(im_nb)+"_"+args.tlayer)
 	## Weights
 	weight = model.layers[layer_nb].get_weights()
 	if (len(weight) > 0):
@@ -349,7 +402,25 @@ if (args.trun == "deconv"):
 			weight = weight[i]*255.
 			if (args.verbose):
 				process_fmap(weight, im, layer="weight" + str(i) + "_"+args.tlayer, normalize=(args.tmodel == "vgg"))
-			save_fmap(weight, layer="weight" + str(i) + "_"+args.tlayer)
+			#save_fmap(weight, layer="im="+str(im_nb)+"_weight" + str(i) + "_"+args.tlayer)
 	else:
 		print("Layer " + args.tlayer + " has no weights!")
-	## Max activation
+	## Reconstruct image with highest average activation for filter of index filter_index
+	## https://blog.keras.io/how-convolutional-neural-networks-see-the-world.html
+	## Select n filters randomly and reconstruct inputs
+	import random
+	n = 5 # < 10
+	m = 10
+	rand_range = random.sample(range(m), n)
+	#filters = [grad_ascent(im, model, filter_index, layer_name=args.tlayer, batch_size=args.batch) for filter_index in rand_range]
+	#save_inputs(filters, layer="grad_ascent_im="+str(im_nb)+"_"+args.tlayer)
+	## Reconstruct image with highest average activation for class
+	## https://blog.keras.io/how-convolutional-neural-networks-see-the-world.html
+	class_ = 284
+	ntries = 5
+	#model = d_models[args.tmodel](pretrained=args.trained>0, sz=sz)
+	#imgs = [grad_ascent(im, model, class_, batch_size=args.batch) for i in range(ntries)]
+	#save_inputs(imgs, layer="grad_ascent_im="+str(im_nb)+"_class="+str(class_), class_=imagenet1000[class_])
+	filter_index = 0
+	top9 = find_top9_mean_act(X_test, model, deconv_model, args.batch, filter_index, args.tlayer)
+	print(top9)

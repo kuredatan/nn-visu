@@ -29,7 +29,7 @@ def VGG_16(pretrained=True, weights_path=None, noutputs=num_classes, deconv=Fals
 	if (pretrained):
 		weights_path = './data/weights/vgg16_weights.h5'
 
-	inp = Input(shape = (sz, sz, 3), name="input_1")
+	inp = Input(shape = (sz, sz, 3), name="input")
 	x = inp
 	x = ZeroPadding2D((1, 1))(x)
 	x = Conv2D(64, (3, 3), activation='relu', name="block1_conv1")(x)
@@ -139,7 +139,7 @@ def Conv2(pretrained=True, weights_path=None, noutputs=num_classes, deconv=False
 	if (pretrained):
 		weights_path = './data/weights/conv2_weights.h5'
 
-	inp = Input(shape = (sz, sz, 3))
+	inp = Input(shape = (sz, sz, 3), name="input")
 	x = inp
 	x = Conv2D(32, (3, 3), padding='same', activation="relu", name="conv1-1")(x)
 	layers = ["conv1-1"]
@@ -190,7 +190,7 @@ def Conv(pretrained=True, weights_path=None, noutputs=num_classes, deconv=False,
 	if (pretrained):
 		weights_path = './data/weights/conv_weights.h5'
 
-	inp = Input(shape = (sz, sz, 3))
+	inp = Input(shape = (sz, sz, 3), name="input")
 	x = inp
 	x = Conv2D(32, (3, 3), padding='same', activation='relu', name="conv1")(x)
 	layers = ["conv1"]
@@ -256,7 +256,7 @@ def Vonc(pretrained=True, weights_path=None, noutputs=num_classes, deconv=False,
 	if (pretrained):
 		weights_path = './data/weights/vonc_weights.h5'
 
-	inp = Input(shape = (sz, sz, 3))
+	inp = Input(shape = (sz, sz, 3), name="input")
 	x = inp
 	x = Conv2D(32, (3, 3), activation='relu', name="block1_conv1")(x)
 	layers = ["block1_conv1"]

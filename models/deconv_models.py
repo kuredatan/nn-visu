@@ -30,6 +30,9 @@ def VGG_16(pretrained=True, weights_path=None, noutputs=num_classes, layer="", s
 
 	pos1, pos2, pos3, pos4, pos5 = [None]*5
 
+	if (not layer):
+		layer = "block5_pool"
+
 	layers = ["block5_pool"]
 	if (layer in layers):
 		inp = Input(batch_shape = (1, sz // 32, sz // 32, 128*2*2), name="input")
@@ -163,6 +166,9 @@ def Conv2(pretrained=True, weights_path=None, noutputs=num_classes, layer="", sz
 
 	pos1, pos2, pos3 = [None]*3
 
+	if (not layer):
+		layer = "pool2"
+
 	layers = ["pool2"]
 	if (layer in layers):
 		inp = Input(batch_shape = (1, sz // 4, sz // 4, 64), name="input")
@@ -222,6 +228,9 @@ def Conv(pretrained=True, weights_path=None, noutputs=num_classes, layer="", sz=
 		weights_path = './data/weights/conv_weights.h5'
 
 	pos1, pos2, pos3 = [None]*3
+
+	if (not layer):
+		layer = "pool6"
 
 	layers = ["pool6"]
 	if (layer in layers):
@@ -301,6 +310,9 @@ def Vonc(pretrained=True, weights_path=None, noutputs=num_classes, deconv=False,
 
 	pos1, pos2, pos3 = [None]*3
 
+	if (not layer):
+		layer = "pool3"
+
 	layers = ["pool3"]
 	if (layer in layers):
 		inp = Input(batch_shape = (1, sz // 16, sz // 16, 128), name="input")
@@ -318,6 +330,8 @@ def Vonc(pretrained=True, weights_path=None, noutputs=num_classes, deconv=False,
 		if (layer == "pool2"):
 			inp = Input(batch_shape = (1, 6, 6, 128), name="input")
 			x = inp
+		## "Deconvolution" of Dropout layers
+		x = Interp((6, 6))(x)
 		pos2 = Input(batch_shape = (1, 6, 6, 128), name="pos2")
 		x = UndoMaxPooling2D((1, 12, 12, 128), name="pool2")([x, pos2])
 	layers.append("block2_conv1")
@@ -347,8 +361,9 @@ def Vonc(pretrained=True, weights_path=None, noutputs=num_classes, deconv=False,
 			inp = Input(batch_shape = (1, 30, 30, 32), name="input")
 			x = inp
 		x = Deconv2D(3, 3, padding='SAME', activation='relu', name="block1_conv1")(x)
-
+	
 	inputs = [inp]
+
 	for p in [pos1, pos2, pos3]:
 		if (p != None):
 			inputs.append(p)

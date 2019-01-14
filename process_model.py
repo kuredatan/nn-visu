@@ -24,7 +24,7 @@ import cv2
 import os
 from imagenet1000 import imagenet1000
 from cats import dict_labels_cats
-from utils import get_deconv_images, plot_deconv, plot_max_activation, find_top9_mean_act, grad_ascent
+from utils import grad_ascent
 import matplotlib.pyplot as plt
 from sklearn.metrics import classification_report, confusion_matrix
 
@@ -75,10 +75,8 @@ parser.add_argument('--tlayer', type=str, default="", metavar='Y',
                     help='Name of the layer to deconvolve.')
 parser.add_argument('--verbose', type=int, default=0, metavar='V',
                     help='Whether to print things or not: in {0, 1}.')
-#parser.add_argument('--subtask', type=str, default="", metavar='S',
-#                    help='Sub-task for deconvolution.')
-#parser.add_argument('--tdeconv', type=str, default="custom", metavar='K',
-#                    help='Choice of implementation for deconvolution: Mihai Dusmanu\'s (\'custom\') or DeepLearningImplementations (\'keras\').')
+parser.add_argument('--subtask', type=str, default="fixed", metavar='S',
+                    help='Sub-task for deconvolution: fixed layer (use the layer specified in --tlayer option) or compare layers (all convolutional and pooling layers).')
 parser.add_argument('--loss', type=str, default="categorical_crossentropy", metavar='O',
                     help='Choice of loss function, among those supported by Keras.')
 args = parser.parse_args()
@@ -90,6 +88,11 @@ if not os.path.exists(folder):
 folder += args.tdata + "/"
 if not os.path.exists(folder):
 	os.mkdir(folder)
+
+if not os.path.exists("./testing/"):
+        os.makedirs("./testing/")
+if not os.path.exists("./training/"):
+        os.makedirs("./training/")
 
 if not os.path.exists("./Figures/"):
         os.makedirs("./Figures/")
@@ -125,6 +128,12 @@ else:
 	sz = 32
 	training_means = [np.mean(X_train[:,:,i].astype('float32')) for i in range(3)]
 	preprocess_image = lambda x : normalize_input(x, sz, training_means)
+
+pos_shape_dict = {"conv": [(1, sz // 2, sz // 2, 32), (1, sz // 4, sz // 4, 64), (1, sz // 8, sz // 8, 128)], 
+	"conv2": [(1, sz // 2, sz // 2, 32), (1, sz // 4, sz // 4, 64)], 
+	"vonc": [(1, 14, 14, 64), (1, 6, 6, 128), (1, sz // 16, sz // 16, 128)], 
+	"vgg": [(1, 112, 112, 64), (1, sz // 4, sz // 4, 128), (1, sz // 8, sz // 8, 128*2), (1, sz // 16, sz // 16, 128*2*2), (1, sz // 32, sz // 32, 128*2*2)],
+}
 
 ## CREDIT: Keras training on CIFAR-10 
 ## https://gist.github.com/giuseppebonaccorso/e77e505fc7b61983f7b42dc1250f31c8
@@ -240,9 +249,26 @@ def run_nn(datagen, X, Y_c, Y, batch_size, X_val=None, Y_val_c=None, training=Fa
 	else:
 		target_names = imagenet1000.keys()
 	print('\n* * * Confusion Matrix')
-	print(confusion_matrix(Y_test, labels))
+	target = list(set(Y_test+labels))
+	conf_mat = confusion_matrix(Y_test, labels, labels=target)
+	print(conf_matrix)
 	print('\n* * * Classification Report')
-	print(classification_report(Y_test, labels, target_names=list(map(lambda x : imagenet1000[x], list(set(Y_test))))))
+	target_names = list(map(lambda x : imagenet1000[x], list(set(Y_test))))
+	class_report = classification_report(Y_test, labels, target_names=target_names)
+	print(class_report)
+	names = ["model", "epochs", "batch", "optimizer", "lr"]
+	feat = list(map(str, [args.tmodel, args.epoch, args.batch, args.optimizer, args.lr]))
+	caract = names[0]+"="+feat[0]
+	for i in range(1, len(names)):
+		caract += "_" + names[i]+"="+feat[i]
+	if (query_yes_no("Save confusion matrix/report?", default="yes")):
+		header = ""
+		for t in target:
+			header += t+","
+		np.savetxt("./testing/conf_matrix_"+caract+".csv", conf_matrix, header=header)
+		## https://stackoverflow.com/questions/19201290/how-to-save-a-dictionary-to-a-file
+		## read_dictionary = np.load('my_file.npy').item()
+		np.save("./testing/report_"+caract+".npy", class_report) 
 	if (not training):
 		if (args.verbose == 1):
 			acc = np.sum(np.array(labels) == np.array(Y_test))/float(len(labels))
@@ -265,7 +291,6 @@ def run_nn(datagen, X, Y_c, Y, batch_size, X_val=None, Y_val_c=None, training=Fa
 		print("LOSS\t\t%.3f" % (loss))
 	## https://towardsdatascience.com/visualizing-intermediate-activation-in-convolutional-neural-networks-with-keras-260b36d60d0
 	## Loss curves
-	# TODO testing
 	acc = hist.history['acc']
 	val_acc = hist.history['val_acc']
 	loss = hist.history['loss']
@@ -281,10 +306,17 @@ def run_nn(datagen, X, Y_c, Y, batch_size, X_val=None, Y_val_c=None, training=Fa
 	plt.plot(epochs, val_loss, 'r', label='Validation loss')
 	plt.title('Training and validation loss')
 	plt.legend()
+	mat = np.zeros((len(acc), 4))
+	obj = [acc, val_acc, loss, val_loss]
+	for i in range(4):
+		mat[:, i] = obj[i]
+	if (query_yes_no("Save loss/accuracy values?", default="yes")):
+		np.savetxt("loss_acc_"+caract+".csv", mat, header="acc,val_acc,loss,val_loss")
+	fig = plt.gcf()	
 	if (args.verbose):
 		plt.show()
 	if (query_yes_no("Save loss/accuracy curves?", default="yes")):
-		plt.savefig(args.tmodel+"_"+args.tdata+"_loss_acc_curves.png", bbox_inches="tight")
+		fig.savefig(args.tmodel+"_"+args.tdata+"_loss_acc_curves.png", bbox_inches="tight")
 	if (query_yes_no("Save weights?", default="yes")):
 		model.save_weights('./data/weights/'+args.tmodel+'_weights.h5')
 	return hist
@@ -316,9 +348,10 @@ def save_fmap(out, layer="", sz=sz, normalize=False):
 	plt.imshow(out)
 	plt.axis('off')
 	plt.title("Feature map for layer " + layer[1:])
+	fig = plt.gcf()
 	if (query_yes_no("Save feature map?", default="yes")):
 		print("Saved in Figures/"+args.tmodel+"/"+args.tmodel+"_feature_map_layer" + layer + ".png")
-		plt.savefig("Figures/"+args.tmodel+"/"+args.tmodel+"_feature_map_layer" + layer + ".png", bbox_inches="tight")
+		fig.savefig("Figures/"+args.tmodel+"/"+args.tmodel+"_feature_map_layer" + layer + ".png", bbox_inches="tight")
 
 def save_inputs(filters, layer='', class_='', sz=sz, normalize=True):
 	fig = plt.figure(figsize=(20,20))
@@ -342,10 +375,11 @@ def save_inputs(filters, layer='', class_='', sz=sz, normalize=True):
 		plt.title("Reconstructed inputs for maximizing activation in layer " + layer)
 	if (class_):
 		plt.title("Reconstructed inputs for maximizing activation in class " + class_)
+	fig = plt.gcf()
 	plt.show()
 	if (query_yes_no("Save feature map?", default="yes")):
+		fig.savefig("Figures/"+args.tmodel+"/"+args.tmodel+"_feature_map_layer" + layer + ".png", bbox_inches="tight")
 		print("Saved in Figures/"+args.tmodel+"/"+args.tmodel+"_feature_map_layer" + layer + ".png")
-		plt.savefig("Figures/"+args.tmodel+"/"+args.tmodel+"_feature_map_layer" + layer + ".png", bbox_inches="tight")
 
 ## Generator for training data
 datagen_train = ImageDataGenerator(
@@ -386,7 +420,7 @@ if (args.trun == "deconv"):
 	print("** Layer: " + args.tlayer + " **")
 	im = preprocess_image(np.expand_dims(X_test[im_nb, :, :, :], axis=0))
 	out = model.predict([im])
-	#save_fmap(out, layer="im="+str(im_nb)+"_output_model_" + args.tlayer)
+	save_fmap(out, layer="im="+str(im_nb)+"_output_model_" + args.tlayer)
 	if (args.verbose == 1):
 		print("#outputs = " + str(len(out)) + " of sizes:")
 		print(list(map(np.shape, out)))
@@ -394,7 +428,7 @@ if (args.trun == "deconv"):
 	out = deconv_model.predict(out)
 	if (args.verbose):
 		process_fmap(out, im, layer=args.tlayer, normalize=(args.tmodel == "vgg"))
-	#save_fmap(out, layer="im="+str(im_nb)+"_"+args.tlayer)
+	save_fmap(out, layer="im="+str(im_nb)+"_"+args.tlayer)
 	## Weights
 	weight = model.layers[layer_nb].get_weights()
 	if (len(weight) > 0):
@@ -402,25 +436,40 @@ if (args.trun == "deconv"):
 			weight = weight[i]*255.
 			if (args.verbose):
 				process_fmap(weight, im, layer="weight" + str(i) + "_"+args.tlayer, normalize=(args.tmodel == "vgg"))
-			#save_fmap(weight, layer="im="+str(im_nb)+"_weight" + str(i) + "_"+args.tlayer)
+			save_fmap(weight, layer="im="+str(im_nb)+"_weight" + str(i) + "_"+args.tlayer)
 	else:
 		print("Layer " + args.tlayer + " has no weights!")
 	## Reconstruct image with highest average activation for filter of index filter_index
 	## https://blog.keras.io/how-convolutional-neural-networks-see-the-world.html
 	## Select n filters randomly and reconstruct inputs
 	import random
-	n = 5 # < 10
-	m = 10
-	rand_range = random.sample(range(m), n)
-	#filters = [grad_ascent(im, model, filter_index, layer_name=args.tlayer, batch_size=args.batch) for filter_index in rand_range]
-	#save_inputs(filters, layer="grad_ascent_im="+str(im_nb)+"_"+args.tlayer)
+	## <!> Fixed layer
+	if (args.subtask == "fixed"):
+		n = 1 # < 10
+		m = 1
+		rand_range = random.sample(range(m), n)
+		filters = [grad_ascent(im, model, filter_index, layer_name=args.tlayer, batch_size=args.batch, step=args.lr) for filter_index in rand_range]
+	## <!> Compare different layers
+	else:
+		filter_index = 0
+		layers = list(filter(lambda x : x[:6] != "interp" and x[:3] != "pos" and x[:5] != "input", map(lambda x : x.name, deconv_model.layers)))
+		filters = [grad_ascent(im, model, filter_index, layer_name=layer, batch_size=args.batch, step=args.lr) for layer in layers]
+	save_inputs(filters, layer="grad_ascent_im="+str(im_nb)+"_"+args.tlayer)
+	## Deconv them
+	deconv_filters = [deconv_model.predict(model.predict([f])) for f in filters]
+	save_inputs(deconv_filters, layer="deconv_grad_ascent_im="+str(im_nb)+"_"+args.tlayer)
 	## Reconstruct image with highest average activation for class
 	## https://blog.keras.io/how-convolutional-neural-networks-see-the-world.html
 	class_ = 284
-	ntries = 5
-	#model = d_models[args.tmodel](pretrained=args.trained>0, sz=sz)
-	#imgs = [grad_ascent(im, model, class_, batch_size=args.batch) for i in range(ntries)]
-	#save_inputs(imgs, layer="grad_ascent_im="+str(im_nb)+"_class="+str(class_), class_=imagenet1000[class_])
-	filter_index = 0
-	top9 = find_top9_mean_act(X_test, model, deconv_model, args.batch, filter_index, args.tlayer)
-	print(top9)
+	ntries = 1
+	## Full model and DeconvNet
+	deconv_model = d_dmodels[args.tmodel](pretrained=args.trained>0, sz=sz)
+	model = d_models[args.tmodel](pretrained=args.trained>0, sz=sz, deconv=True)
+	imgs = [grad_ascent(im, model, class_, batch_size=args.batch, step=args.lr) for i in range(ntries)]
+	save_inputs(imgs, layer="grad_ascent_im="+str(im_nb)+"_class="+str(class_), class_=imagenet1000[class_])
+	## Deconv them
+	## Select layer before the FC part
+	layer_bfc = deconv_model.layers[2].name
+	model = d_models[args.tmodel](pretrained=args.trained>0, sz=sz, deconv=True, layer=layer_bfc)
+	deconv_imgs = [deconv_model.predict(model.predict([i])) for i in imgs]
+	save_inputs(deconv_imgs, layer="deconv_grad_ascent_im="+str(im_nb)+"_class="+str(class_), class_=imagenet1000[class_])

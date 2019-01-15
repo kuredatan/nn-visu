@@ -49,6 +49,7 @@ def plot_bovw(hst, title="mystery image"):
 	plt.title("Bag-of-Visual-Words with " + title)
 	plt.xlabel("Word ID")
 	plt.ylabel("\'Count\'")
+	plt.savefig("bow_"+title+".png", bbox_inches="tight")
 	plt.show()
 
 def plot_bovw_compare(query_hist, hst, score):
@@ -63,6 +64,7 @@ def plot_bovw_compare(query_hist, hst, score):
 	plt.title("Bag-of-Visual-Words with closest image (score = "+ str(round(score, 2))+")")
 	plt.xlabel("Word ID")
 	plt.ylabel("\'Count\'")
+	plt.savefig("bow_input_closest.png", bbox_inches="tight")
 	plt.show()
 
 def plot_image_compare(query, im):
@@ -81,6 +83,7 @@ def plot_image_compare(query, im):
 	plt.title("Closest image")
 	plt.xlabel("")
 	plt.ylabel("")
+	plt.savefig("image_input_closest.png", bbox_inches="tight")
 	plt.show()
 
 def compute_SIFT(im):
@@ -367,13 +370,14 @@ def repeatability_harris(fmap, images_list, name="cats", fmap_name="1", list_img
 ###################################################################
 
 ## Tests
-list_img = glob.glob("../data/cats/*.jpg*")
-assert len(list_img) > 0, "Put some images in the ./data/cats folder"
-images_list = [load_input(im_name) for im_name in list_img]
-fmap = load_input("cat7-1.jpg")
 if (False):
-	bow_comparison(fmap, images_list, list_img=list_img)
-if (False):
-	corresp_comparison(fmap, images_list, list_img=list_img)
-if (False):
-	repeatability_harris(fmap, images_list, list_img=list_img)
+	list_img = glob.glob("../data/cats/*.jpg*")
+	assert len(list_img) > 0, "Put some images in the ./data/cats folder"
+	images_list = [load_input(im_name) for im_name in list_img]
+	fmap = load_input("cat7-1.jpg")
+	if (False):
+		bow_comparison(fmap, images_list, list_img=list_img)
+	if (False):
+		corresp_comparison(fmap, images_list, list_img=list_img)
+	if (False):
+		repeatability_harris(fmap, images_list, list_img=list_img)

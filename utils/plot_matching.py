@@ -76,8 +76,11 @@ def plot_correspondences(im1, im2, src, dst, inliers):
 	inlier_idxs = np.nonzero(inliers)[0]
 	fig, ax = plt.subplots(nrows=1, ncols=1)
 	plt.gray()
+	im1 = np.resize(im1, (32, 32))
+	im2 = np.resize(im2, (32, 32))
 	plot_matches(ax, im1, im2, src, dst,
 		     np.column_stack((inlier_idxs, inlier_idxs)), matches_color='b')
 	ax.axis('off')
 	ax.set_title('RANSAC filtered correspondances with closest image')
+	plt.savefig("ransac_correspondances.png", bbox_inches="tight")
 	plt.show()

@@ -26,8 +26,15 @@ We will test the following pipeline for every convolutional or pooling layer in 
 2) Save the filter images associated with the layer (a few of the feature maps, for instance, n=5, when relevant) and deconvolve them
 3) Train the network with a batch of 32 images from the considered class
 4) Save the filter images associated with the layer (a few of the feature maps, for instance, n=5, when relevant, the same as in (2)) and deconvolve them
-5) Perform BoW analysis on the deconvoluted filter images and the original images from the class
-6) Perform SIFT analysis on the deconvoluted filter images and the original images from the class
-7) Perform Harris analysis on the deconvoluted filter images and the original images from the class
-8) Compare the values obtained and try to interpret them
+
+Another pipeline to see the evolution of the detection of corner, SIFT descriptors, etc.
+1) Get the outputs for each layer of the two models for one image from the dataset CATS
+2) Perform BoW analysis on the deconvoluted filter images and the original images from the class
+3) Perform SIFT analysis on the deconvoluted filter images and the original images from the class
+4) Perform Harris analysis on the deconvoluted filter images and the original images from the class
+5) Compare the values obtained and try to interpret them
+Values for layer=conv1 and model=conv for BOW: bow_scores.dat
+for SIFT: contributions.dat
+for Harris: contributions.dat
+Called with "python3.6 analysis_fmaps.py --tname conv/convfeature_map_layer_conv1.png --tmethod {harris,bow,sift}"
 

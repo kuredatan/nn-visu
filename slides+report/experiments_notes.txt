@@ -28,7 +28,7 @@ We will test the following pipeline for every convolutional or pooling layer in 
 4) Save the filter images associated with the layer (a few of the feature maps, for instance, n=5, when relevant, the same as in (2)) and deconvolve them
 
 Another pipeline to see the evolution of the detection of corner, SIFT descriptors, etc.
-1) Get the outputs for each layer of the two models for one image from the dataset CATS
+1) Apply to reconstructed inputs from class Siamese (before/after training) and to outputs of each layer for a given image (for instance cat) 
 2) Perform BoW analysis on the deconvoluted filter images and the original images from the class
 3) Perform SIFT analysis on the deconvoluted filter images and the original images from the class
 4) Perform Harris analysis on the deconvoluted filter images and the original images from the class

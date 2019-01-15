@@ -132,7 +132,6 @@ def VGG_16(pretrained=True, weights_path=None, noutputs=num_classes, deconv=Fals
 		print(msg)
 
 	return model
-## TODO testing VGG
 
 ## CREDIT: https://blog.plon.io/tutorials/cifar-10-classification-using-keras-tutorial/
 def Conv2(pretrained=True, weights_path=None, noutputs=num_classes, deconv=False, sz=32, layer=""):

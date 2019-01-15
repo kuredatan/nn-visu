@@ -82,6 +82,8 @@ parser.add_argument('--step', type=float, default=0.0001, metavar='P',
                     help='Step for gradient ascent when visualizing feature maps/layers.')
 parser.add_argument('--loss', type=str, default="categorical_crossentropy", metavar='O',
                     help='Choice of loss function, among those supported by Keras.')
+parser.add_argument('--nb', type=str, default="", metavar='B',
+                    help='Number of experiment in final pipeline (rename automatically the resulting figures).')
 args = parser.parse_args()
 
 folder = "./data/figures/"
@@ -128,7 +130,7 @@ def print_image(x):
 
 if (args.tmodel == "vgg"):
 	sz = 224
-	preprocess_image = lambda x : resize(x, (1, sz, sz, 3))
+	preprocess_image = lambda x : resize(x, (np.shape(x)[0], sz, sz, 3)) if (len(np.shape(x)) == 4) else resize(x, (1, sz, sz, 3))
 	#preprocess_input(resize(x, (1, sz, sz, 3)))
 else:
 	sz = 32
@@ -358,7 +360,9 @@ def save_fmap(out, layer="", sz=sz, normalize=False):
 		print("Saved in Figures/"+args.tmodel+"/"+args.tmodel+"_feature_map_layer" + layer + ".png")
 		fig.savefig("Figures/"+args.tmodel+"/"+args.tmodel+"_feature_map_layer" + layer + ".png", bbox_inches="tight")
 
-def save_inputs(filters, layer='', class_='', sz=sz, normalize=True, show=True):
+def save_inputs(filters, layer='', class_='', sz=sz, normalize=True, show=True, nb=args.nb):
+	if (nb):
+		nb = "_"+nb
 	fig = plt.figure(figsize=(20,20))
 	plt.axis('off')
 	n = len(filters)
@@ -384,8 +388,8 @@ def save_inputs(filters, layer='', class_='', sz=sz, normalize=True, show=True):
 	if (show):
 		plt.show()
 	if (query_yes_no("Save feature map?", default="yes")):
-		fig.savefig("Figures/"+args.tmodel+"/"+args.tmodel+"_feature_map_layer" + layer + ".png", bbox_inches="tight")
-		print("Saved in Figures/"+args.tmodel+"/"+args.tmodel+"_feature_map_layer" + layer + ".png")
+		fig.savefig("Figures/"+args.tmodel+"/"+args.tmodel+"_feature_map_layer" + layer + nb + ".png", bbox_inches="tight")
+		print("Saved in Figures/"+args.tmodel+"/"+args.tmodel+"_feature_map_layer" + layer + nb + ".png")
 
 ## Generator for training data
 datagen_train = ImageDataGenerator(
@@ -481,73 +485,99 @@ if (args.trun == "deconv"):
 ## Final pipeline: Call
 ## python2.7 process_model.py --tmodel conv --trained 1 --trun final --batch 32 --tdata siamese --lr 0.001 --optimizer Adam --loss categorical_crossentropy --epoch 10
 if (args.trun == "final"):
-	## STEP 2: Before training
-	n = 1 # < 10
+	print("* * Experiment #" + args.nb)
+	## Parameters
+	class_ = 284 # 'Siamese cat' class
+	ntries = 1 #Nb of inputs to reconstruct
+	n = 1 # < 10 Nb of features maps to show
 	m = 1
-	rand_range = random.sample(range(m), n)
-	layers = list(filter(lambda x : x[:6] != "interp" and x[:3] != "pos" and x[:5] != "input", map(lambda x : x.name, deconv_model.layers)))
+	p = 0.30 ## proportion of validation set in training set
 	im = np.zeros((1, sz, sz, 3))
-	filters = [[grad_ascent(im, model, filter_index, layer_name=layer, batch_size=args.batch, step=args.step) for filter_index in rand_range] for layer in layers]
-	layer_bfc = deconv_model.layers[2].name
-	model_ = d_models[args.tmodel](pretrained=args.trained>0, sz=sz, deconv=True, layer=layer_bfc)
-	deconv_filters = [[deconv_model.predict(model_.predict([i])) for i in f] for f in filters]
-	hf = ''
-	for f in rand_range:
-		hf += str(f)+','
-	for i in range(len(filters)):
-		save_inputs(deconv_filters[i], layer="deconv_b_training_layer="+layers[i]+"_filters="+hf, show=False)
-	class_ = 284 # 'Siamese cat' class
-	ntries = 5
-	## Full model and DeconvNet
-	deconv_model = d_dmodels[args.tmodel](pretrained=args.trained>0, sz=sz)
-	model = d_models[args.tmodel](pretrained=args.trained>0, sz=sz, deconv=True)
-	imgs = [grad_ascent(im, model, class_, batch_size=args.batch, step=args.step) for i in range(ntries)]
-	## Deconv them
-	## Select layer before the FC part
-	layer_bfc = deconv_model.layers[2].name
-	model = d_models[args.tmodel](pretrained=args.trained>0, sz=sz, deconv=True, layer=layer_bfc)
-	deconv_imgs = [deconv_model.predict(model.predict([i])) for i in imgs]
-	save_inputs(deconv_imgs, layer="b_training_deconv_class="+str(class_), class_=imagenet1000[class_], show=False)
+	todo = {"max_act_filter_btrain": 0,
+		"max_act_class_btrain": 1,
+		"train": 1,
+		"max_act_filter_atrain": 0,
+		"max_act_class_atrain": 1} ## Whether to perform each step
+	for i in todo.keys():
+		todo[i] = bool(todo[i])
+	## STEP 2: Before training
+	###### Get the reconstructed inputs yielding highest mean activation
+	if (todo["max_act_filter_btrain"]):
+		rand_range = random.sample(range(m), n)
+		layers = list(filter(lambda x : x[:6] != "interp" and x[:3] != "pos" and x[:5] != "input", map(lambda x : x.name, deconv_model.layers)))
+		filters = [[grad_ascent(im, model, filter_index, layer_name=layer, batch_size=args.batch, step=args.step) for filter_index in rand_range] for layer in layers]
+		layer_bfc = deconv_model.layers[2].name
+		model_ = d_models[args.tmodel](pretrained=args.trained>0, sz=sz, deconv=True, layer=layer_bfc)
+		deconv_filters = [[deconv_model.predict(model_.predict([i])) for i in f] for f in filters]
+		hf = ''
+		for f in rand_range:
+			hf += str(f)+','
+		for i in range(len(filters)):
+			save_inputs(deconv_filters[i], layer="deconv_b_training_layer="+layers[i]+"_filters="+hf, show=False)
+	###### Get the reconstructed inputs yielding highest mean activation in 
+	###### class_ output (wrt ImageNet labels) of softmax layer
+	if (todo["max_act_class_btrain"]):
+		## Full model and DeconvNet
+		deconv_model = d_dmodels[args.tmodel](pretrained=args.trained>0, sz=sz)
+		model = d_models[args.tmodel](pretrained=args.trained>0, sz=sz, deconv=True)
+		imgs = [grad_ascent(im, model, class_, batch_size=args.batch, step=args.step) for i in range(ntries)]
+		## Deconv them
+		## Select layer before the FC part
+		layer_bfc = deconv_model.layers[2].name
+		model = d_models[args.tmodel](pretrained=args.trained>0, sz=sz, deconv=True, layer=layer_bfc)
+		deconv_imgs = [deconv_model.predict(model.predict([i])) for i in imgs]
+		save_inputs(deconv_imgs, layer="b_training_deconv_class="+str(class_), class_=imagenet1000[class_], show=False)
 	## STEP 3: Training with the considered class
-	Y_test_c = to_categorical(Y_test, num_classes)
-	## Cut X_test into training and validation datasets
-	p = 0.30
-	n = np.shape(X_test)[0]
-	in_val = sample(range(n), int(p*n))
-	in_train = list(set(in_val).symmetric_difference(range(n)))
-	X_val = X_test[in_val, :, :, :]
-	Y_val = Y_test[in_val]
-	Y_val_c = Y_test_c[in_val, :]
-	X_test = X_test[in_train, :, :, :]
-	Y_test_c = Y_test_c[in_train, :]
-	## Remove data augmentation
-	model = d_models[args.tmodel](pretrained=args.trained>0, sz=sz, deconv=False)
-	model.compile(loss=args.loss, optimizer=optimizer, metrics=['accuracy'])
-	hist = model.fit(preprocess_image(X_test), Y_test_c, batch_size=args.batch, verbose=1,
-			epochs=args.epoch,shuffle=True,
-			validation_data=(preprocess_image(X_val), Y_val_c),
-			callbacks=[EarlyStopping(monitor="val_loss", min_delta=0.001, patience=3)])
-	## SAVE WEIGHTS
-	wname = './data/weights/'+args.tmodel+'_'+args.tdata+'_weights.h5'
-	model.save_weights(wname)
-	print("Saved weights at " + wname)
+	###### 
+	###### 
+	if (todo["train"]):
+		Y_test_c = to_categorical(Y_test, num_classes)
+		## Cut X_test into training and validation datasets
+		n = np.shape(X_test)[0]
+		in_val = sample(range(n), int(p*n))
+		in_train = list(set(in_val).symmetric_difference(range(n)))
+		X_val = X_test[in_val, :, :, :]
+		Y_val = Y_test[in_val]
+		Y_val_c = Y_test_c[in_val, :]
+		X_test = X_test[in_train, :, :, :]
+		Y_test = Y_test[in_train]
+		Y_test_c = Y_test_c[in_train, :]
+		## Remove data augmentation
+		if (args.tmodel != "vgg"):
+			model = d_models[args.tmodel](pretrained=args.trained>0, sz=sz, deconv=False)
+		else:
+			## Directly import the model from Keras
+			from keras.applications import VGG16
+			model = VGG16(include_top=True, weights="imagenet", classes=num_classes)
+		model.compile(loss=args.loss, optimizer=optimizer, metrics=['accuracy'])
+		hist = model.fit(preprocess_image(X_test), Y_test_c, batch_size=args.batch, verbose=1,
+				epochs=args.epoch,shuffle=True,
+				validation_data=(preprocess_image(X_val), Y_val_c),
+				callbacks=[EarlyStopping(monitor="val_loss", min_delta=0.001, patience=3)])
+		## SAVE WEIGHTS
+		wname = './data/weights/'+args.tmodel+'_'+args.tdata+'_weights.h5'
+		model.save_weights(wname)
+		print("Saved weights at " + wname)
 	## STEP 4
-	model = d_models[args.tmodel](pretrained=args.trained>0, weights_path=wname, deconv=False, sz=sz, layer=args.tlayer)
-	layer_bfc = deconv_model.layers[2].name
-	model_ = d_models[args.tmodel](pretrained=args.trained>0, sz=sz, deconv=True, layer=layer_bfc)
-	filters = [[grad_ascent(im, model, filter_index, layer_name=layer, batch_size=args.batch, step=args.step) for filter_index in rand_range] for layer in layers]
-	deconv_filters = [[deconv_model.predict(model_.predict([i])) for i in f] for f in filters]
-	for i in range(len(filters)):
-		save_inputs(deconv_filters[i], layer="deconv_a_training_layer="+layers[i]+"_filters="+hf, show=False)
-	class_ = 284 # 'Siamese cat' class
-	ntries = 5
-	## Full model and DeconvNet
-	deconv_model = d_dmodels[args.tmodel](pretrained=args.trained>0, sz=sz)
-	model = d_models[args.tmodel](pretrained=args.trained>0, sz=sz, weights_path=wname, deconv=True)
-	imgs = [grad_ascent(im, model, class_, batch_size=args.batch, step=args.step) for i in range(ntries)]
-	## Deconv them
-	## Select layer before the FC part
-	layer_bfc = deconv_model.layers[2].name
-	model = d_models[args.tmodel](pretrained=args.trained>0, weights_path=wname, sz=sz, deconv=True, layer=layer_bfc)
-	deconv_imgs = [deconv_model.predict(model.predict([i])) for i in imgs]
-	save_inputs(deconv_imgs, layer="a_training_deconv_class="+str(class_), class_=imagenet1000[class_], show=False)
+	if (todo["max_act_filter_atrain"]):
+		model = d_models[args.tmodel](pretrained=args.trained>0, weights_path=wname, deconv=False, sz=sz, layer=args.tlayer)
+		layer_bfc = deconv_model.layers[2].name
+		model_ = d_models[args.tmodel](pretrained=args.trained>0, sz=sz, deconv=True, layer=layer_bfc)
+		###### Get the reconstructed inputs yielding highest mean activation
+		filters = [[grad_ascent(im, model, filter_index, layer_name=layer, batch_size=args.batch, step=args.step) for filter_index in rand_range] for layer in layers]
+		deconv_filters = [[deconv_model.predict(model_.predict([i])) for i in f] for f in filters]
+		for i in range(len(filters)):
+			save_inputs(deconv_filters[i], layer="deconv_a_training_layer="+layers[i]+"_filters="+hf, show=False)
+	###### Get the reconstructed inputs yielding highest mean activation in 
+	###### class_ output (wrt ImageNet labels) of softmax layer
+	if (todo["max_act_class_atrain"]):
+		## Full model and DeconvNet
+		deconv_model = d_dmodels[args.tmodel](pretrained=args.trained>0, sz=sz)
+		model = d_models[args.tmodel](pretrained=args.trained>0, sz=sz, weights_path=wname, deconv=True)
+		imgs = [grad_ascent(im, model, class_, batch_size=args.batch, step=args.step) for i in range(ntries)]
+		## Deconv them
+		## Select layer before the FC part
+		layer_bfc = deconv_model.layers[2].name
+		model = d_models[args.tmodel](pretrained=args.trained>0, weights_path=wname, sz=sz, deconv=True, layer=layer_bfc)
+		deconv_imgs = [deconv_model.predict(model.predict([i])) for i in imgs]
+		save_inputs(deconv_imgs, layer="a_training_deconv_class="+str(class_), class_=imagenet1000[class_], show=False)

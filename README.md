@@ -24,6 +24,20 @@ FINAL | TRAINING | VALIDATION |
 ACCURACY | 0.818 | 0.758
 LOSS | 0.517 | 0.707
 
+# Final pipeline (tests on deconvoluted feature maps)
+
+Call:
+
+```bash
+python2.7 process_model.py --tmodel conv --trained 1 --trun final --batch 32 --tdata siamese --lr 0.001 --optimizer Adam --loss categorical_crossentropy --epoch 10
+```
+
+For analysis using BoW, SIFT descriptors and Harris detectors on feature map in *conv/convfeature_map_layer_conv1.png* against images from dataset *CATS*:
+
+```bash
+python3.6 analysis_fmaps.py --tname conv/convfeature_map_layer_conv1.png --tdata CATS --tmethod {bow|harris|sift}
+```
+
 # Python and modules
 
 see requirements.txt. run
@@ -33,7 +47,7 @@ see requirements.txt. run
 pip install -r requirements.txt
 ```
 
-Python version is 2.7.9 
+Python version is 2.7.9 for the deconvolution. Python version is 3.6.5 for the analysis.
 
 For cyvlfeat:
 

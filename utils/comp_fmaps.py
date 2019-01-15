@@ -50,13 +50,13 @@ def plot_bovw(hst, title="mystery image"):
 	plt.xlabel("Word ID")
 	plt.ylabel("\'Count\'")
 	plt.savefig("bow_"+title+".png", bbox_inches="tight")
-	plt.show()
+	#plt.show()
 
 def plot_bovw_compare(query_hist, hst, score):
 	plt.figure(figsize=(10, 4.19))
 	plt.subplot('121')
 	plt.hist(np.histogram(query_hist))
-	plt.title("Bag-of-Visual-Words with input image/feature map")
+	plt.title("Bag-of-Visual-Words with input image/feat_map")
 	plt.xlabel("Word ID")
 	plt.ylabel("\'Count\'")
 	plt.subplot('122')
@@ -65,7 +65,7 @@ def plot_bovw_compare(query_hist, hst, score):
 	plt.xlabel("Word ID")
 	plt.ylabel("\'Count\'")
 	plt.savefig("bow_input_closest.png", bbox_inches="tight")
-	plt.show()
+	#plt.show()
 
 def plot_image_compare(query, im):
 	if (np.max(query) > 1):
@@ -84,7 +84,7 @@ def plot_image_compare(query, im):
 	plt.xlabel("")
 	plt.ylabel("")
 	plt.savefig("image_input_closest.png", bbox_inches="tight")
-	plt.show()
+	#plt.show()
 
 def compute_SIFT(im):
 	sift = cyvlfeat.sift.sift(plm.rgb2grey(im),peak_thresh=thres,compute_descriptor=True)
@@ -167,7 +167,7 @@ def compute_tdf_idf(histograms, num_words):
 		for j in range(n):
 			tdf = histograms[j,i]/float(np.sum(histograms[j, :]))
 			from math import log
-			idf = log(n/float(np.sum(histograms[:,i] > 0)))
+			idf = log(n/(float(np.sum(histograms[:,i] > 0)+1)))
 			tdf_idf[i, j] = tdf*idf
 	return tdf_idf
 
@@ -233,7 +233,6 @@ def bow_comparison(fmap, images_list, name="cats", num_words=10, fmap_name="1", 
 	print("* Maximum score is " + str(round(scores[0, m], 3)))
 	plot_bovw_compare(query_hist, histograms[m], scores[0, m])
 	plot_image_compare(fmap, images_list[m]/255.)
-	plt.show()
 
 ###########################
 ## Correspondence points ##
@@ -319,7 +318,16 @@ def corresp_comparison(fmap, images_list, name="cats", fmap_name="1", list_img=[
 	if (m):
 		from skimage.feature import plot_matches
 		fig, ax = plt.subplots(nrows=1, ncols=1)
-		plot_matches(ax, fmap, images_list[m], frames_fmap[:, :2], frames[m][:, :2], inliers[m])
+		im1 = np.resize(images_list[m], (32, 32))
+		im2 = np.resize(fmap, (32, 32))
+		plt.figure()
+		plt.subplot("121")
+		plt.imshow(im1)
+		plt.subplot("122")
+		plt.imshow(im2)
+		plt.show()
+		plt.figure()
+		plot_matches(ax, im2, im1, frames_fmap[:, :2], frames[m][:, :2], inliers[m])
 		plt.show()
 
 ###########################################
@@ -338,7 +346,7 @@ def plot_harris_points(image, filtered_coords):
 	plt.plot([p[1] for p in filtered_coords], [p[0] for p in filtered_coords],'b.')
 	plt.axis('off')
 	plt.title("Harris corner points")
-	plt.show()
+	#plt.show()
 
 # fmap: deconvoluted feature map
 # images: list of image files to which the feature map should be compared

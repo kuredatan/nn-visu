@@ -1,0 +1,134 @@
+reda@reda $ python2.7 process_model.py --tmodel conv --trained 1 --trun final --batch 32 --tdata siamese --lr 0.001 --optimizer Adam --loss categorical_crossentropy --epoch 10
+Using TensorFlow backend.
+WARNING: (<class 'ply.yacc.VersionError'>, VersionError('yacc table file version is out of date',), <traceback object at 0x7f1bf9bde8c0>)
+* Loaded weights! (CNN)
+* Loaded weights! (DeconvNet)
+100%|███████████████████████████████████████████████████████████████████████████████| 200/200 [00:02<00:00, 73.56it/s]
+* Final loss: 19.934818
+100%|███████████████████████████████████████████████████████████████████████████████| 200/200 [00:02<00:00, 76.29it/s]
+* Final loss: 6.391054
+100%|███████████████████████████████████████████████████████████████████████████████| 200/200 [00:02<00:00, 92.18it/s]
+* Final loss: 19.8211
+100%|██████████████████████████████████████████████████████████████████████████████| 200/200 [00:01<00:00, 101.63it/s]
+* Final loss: 34.780178
+100%|██████████████████████████████████████████████████████████████████████████████| 200/200 [00:01<00:00, 101.60it/s]
+* Final loss: 25.024231
+100%|██████████████████████████████████████████████████████████████████████████████| 200/200 [00:01<00:00, 131.85it/s]
+* Final loss: 22.377241
+100%|██████████████████████████████████████████████████████████████████████████████| 200/200 [00:01<00:00, 146.42it/s]
+* Final loss: 27.62737
+100%|██████████████████████████████████████████████████████████████████████████████| 200/200 [00:01<00:00, 164.13it/s]
+* Final loss: 19.186329
+100%|██████████████████████████████████████████████████████████████████████████████| 200/200 [00:00<00:00, 429.08it/s]
+* Final loss: 20.942268
+* Loaded weights! (CNN)
+Save feature map? [Y/n] 
+Saved in Figures/conv/conv_feature_map_layerdeconv_b_training_layer=pool6_filters=0,.png
+Save feature map? [Y/n] 
+Saved in Figures/conv/conv_feature_map_layerdeconv_b_training_layer=conv6_filters=0,.png
+Save feature map? [Y/n] 
+Saved in Figures/conv/conv_feature_map_layerdeconv_b_training_layer=conv5_filters=0,.png
+Save feature map? [Y/n] 
+Saved in Figures/conv/conv_feature_map_layerdeconv_b_training_layer=pool4_filters=0,.png
+Save feature map? [Y/n] 
+Saved in Figures/conv/conv_feature_map_layerdeconv_b_training_layer=conv4_filters=0,.png
+Save feature map? [Y/n] 
+Saved in Figures/conv/conv_feature_map_layerdeconv_b_training_layer=conv3_filters=0,.png
+Save feature map? [Y/n] 
+Saved in Figures/conv/conv_feature_map_layerdeconv_b_training_layer=pool2_filters=0,.png
+Save feature map? [Y/n] 
+Saved in Figures/conv/conv_feature_map_layerdeconv_b_training_layer=conv2_filters=0,.png
+Save feature map? [Y/n] 
+Saved in Figures/conv/conv_feature_map_layerdeconv_b_training_layer=conv1_filters=0,.png
+
+* Loaded weights! (DeconvNet)
+* Loaded weights! (CNN)
+100%|███████████████████████████████████████████████████████████████████████████████| 200/200 [00:05<00:00, 38.19it/s]
+* Final loss: 0.0
+100%|███████████████████████████████████████████████████████████████████████████████| 200/200 [00:05<00:00, 36.43it/s]
+* Final loss: 0.0
+100%|███████████████████████████████████████████████████████████████████████████████| 200/200 [00:06<00:00, 32.61it/s]
+* Final loss: 0.0
+100%|███████████████████████████████████████████████████████████████████████████████| 200/200 [00:07<00:00, 25.30it/s]
+* Final loss: 0.0
+100%|███████████████████████████████████████████████████████████████████████████████| 200/200 [00:07<00:00, 26.68it/s]
+* Final loss: 0.0
+* Loaded weights! (CNN)
+Save feature map? [Y/n] Saved in Figures/conv/conv_feature_map_layerb_training_deconv_class=284.png
+* Loaded weights! (CNN)
+Train on 23 samples, validate on 9 samples
+Epoch 1/10
+23/23 [==============================] - 4s 157ms/step - loss: 15.9526 - acc: 0.0000e+00 - val_loss: 6.8656 - val_acc: 0.0000e+00
+Epoch 2/10
+23/23 [==============================] - 1s 55ms/step - loss: 7.3538 - acc: 0.0000e+00 - val_loss: 6.2275 - val_acc: 0.0000e+00
+Epoch 3/10
+23/23 [==============================] - 1s 64ms/step - loss: 5.9783 - acc: 0.0000e+00 - val_loss: 5.8363 - val_acc: 0.3333
+Epoch 4/10
+23/23 [==============================] - 2s 70ms/step - loss: 5.0921 - acc: 0.1304 - val_loss: 4.0210 - val_acc: 1.0000
+Epoch 5/10
+23/23 [==============================] - 2s 78ms/step - loss: 2.1013 - acc: 1.0000 - val_loss: 0.4521 - val_acc: 1.0000
+Epoch 6/10
+23/23 [==============================] - 2s 72ms/step - loss: 0.0463 - acc: 1.0000 - val_loss: 0.0025 - val_acc: 1.0000
+Epoch 7/10
+23/23 [==============================] - 2s 92ms/step - loss: 3.0169e-05 - acc: 1.0000 - val_loss: 1.6027e-06 - val_acc: 1.0000
+Epoch 8/10
+23/23 [==============================] - 2s 84ms/step - loss: 1.1921e-07 - acc: 1.0000 - val_loss: 1.1921e-07 - val_acc: 1.0000
+Epoch 9/10
+23/23 [==============================] - 3s 114ms/step - loss: 1.1921e-07 - acc: 1.0000 - val_loss: 1.1921e-07 - val_acc: 1.0000
+Epoch 10/10
+23/23 [==============================] - 2s 79ms/step - loss: 1.1921e-07 - acc: 1.0000 - val_loss: 1.1921e-07 - val_acc: 1.0000
+Saved weights at ./data/weights/conv_siamese_weights.h5
+* Loaded weights! (CNN)
+* Loaded weights! (CNN)
+100%|███████████████████████████████████████████████████████████████████████████████| 200/200 [00:14<00:00, 14.10it/s]
+* Final loss: 155.47626
+100%|███████████████████████████████████████████████████████████████████████████████| 200/200 [00:11<00:00, 17.28it/s]
+* Final loss: 75.93276
+100%|███████████████████████████████████████████████████████████████████████████████| 200/200 [00:05<00:00, 42.12it/s]
+* Final loss: 86.41133
+100%|███████████████████████████████████████████████████████████████████████████████| 200/200 [00:06<00:00, 29.43it/s]
+* Final loss: 127.12683
+100%|███████████████████████████████████████████████████████████████████████████████| 200/200 [00:07<00:00, 26.49it/s]
+* Final loss: 78.32474
+100%|███████████████████████████████████████████████████████████████████████████████| 200/200 [00:06<00:00, 32.75it/s]
+* Final loss: 32.45746
+100%|███████████████████████████████████████████████████████████████████████████████| 200/200 [00:07<00:00, 27.08it/s]
+* Final loss: 38.87039
+100%|███████████████████████████████████████████████████████████████████████████████| 200/200 [00:03<00:00, 58.21it/s]
+* Final loss: 21.283445
+100%|███████████████████████████████████████████████████████████████████████████████| 200/200 [00:02<00:00, 89.40it/s]
+* Final loss: 20.36044
+Save feature map? [Y/n] 
+Saved in Figures/conv/conv_feature_map_layerdeconv_a_training_layer=pool6_filters=0,.png
+Save feature map? [Y/n] 
+Saved in Figures/conv/conv_feature_map_layerdeconv_a_training_layer=conv6_filters=0,.png
+Save feature map? [Y/n] 
+Saved in Figures/conv/conv_feature_map_layerdeconv_a_training_layer=conv5_filters=0,.png
+Save feature map? [Y/n] 
+Saved in Figures/conv/conv_feature_map_layerdeconv_a_training_layer=pool4_filters=0,.png
+Save feature map? [Y/n] 
+Saved in Figures/conv/conv_feature_map_layerdeconv_a_training_layer=conv4_filters=0,.png
+Save feature map? [Y/n] 
+Saved in Figures/conv/conv_feature_map_layerdeconv_a_training_layer=conv3_filters=0,.png
+Save feature map? [Y/n] 
+Saved in Figures/conv/conv_feature_map_layerdeconv_a_training_layer=pool2_filters=0,.png
+Save feature map? [Y/n] 
+Saved in Figures/conv/conv_feature_map_layerdeconv_a_training_layer=conv2_filters=0,.png
+Save feature map? [Y/n] 
+Saved in Figures/conv/conv_feature_map_layerdeconv_a_training_layer=conv1_filters=0,.png
+* Loaded weights! (DeconvNet)
+* Loaded weights! (CNN)
+100%|███████████████████████████████████████████████████████████████████████████████| 200/200 [00:37<00:00,  6.54it/s]
+* Final loss: 1.0
+100%|███████████████████████████████████████████████████████████████████████████████| 200/200 [00:32<00:00,  7.86it/s]
+* Final loss: 1.0
+100%|███████████████████████████████████████████████████████████████████████████████| 200/200 [00:47<00:00,  6.86it/s]
+* Final loss: 1.0
+100%|███████████████████████████████████████████████████████████████████████████████| 200/200 [00:27<00:00,  9.83it/s]
+* Final loss: 1.0
+100%|███████████████████████████████████████████████████████████████████████████████| 200/200 [00:29<00:00,  6.67it/s]
+* Final loss: 1.0
+* Loaded weights! (CNN)
+Save feature map? [Y/n] 
+Saved in Figures/conv/conv_feature_map_layera_training_deconv_class=284.png
+

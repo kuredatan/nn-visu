@@ -26,7 +26,7 @@ from keras.applications.vgg16 import VGG16
 
 ## CREDIT: https://gist.github.com/baraldilorenzo/07d7802847aaad0a35d3
 def VGG_16(pretrained=True, weights_path=None, noutputs=num_classes, deconv=False, sz=224, layer=""):
-	if (pretrained):
+	if (pretrained and not weights_path):
 		weights_path = './data/weights/vgg16_weights.h5'
 
 	inp = Input(shape = (sz, sz, 3), name="input")
@@ -136,7 +136,7 @@ def VGG_16(pretrained=True, weights_path=None, noutputs=num_classes, deconv=Fals
 
 ## CREDIT: https://blog.plon.io/tutorials/cifar-10-classification-using-keras-tutorial/
 def Conv2(pretrained=True, weights_path=None, noutputs=num_classes, deconv=False, sz=32, layer=""):
-	if (pretrained):
+	if (pretrained and not weights_path):
 		weights_path = './data/weights/conv2_weights.h5'
 
 	inp = Input(shape = (sz, sz, 3), name="input")
@@ -187,7 +187,7 @@ def Conv2(pretrained=True, weights_path=None, noutputs=num_classes, deconv=False
 
 ## CREDIT: https://blog.plon.io/tutorials/cifar-10-classification-using-keras-tutorial/
 def Conv(pretrained=True, weights_path=None, noutputs=num_classes, deconv=False, sz=32, layer=""):
-	if (pretrained):
+	if (pretrained and not weights_path):
 		weights_path = './data/weights/conv_weights.h5'
 
 	inp = Input(shape = (sz, sz, 3), name="input")
@@ -253,7 +253,7 @@ def Conv(pretrained=True, weights_path=None, noutputs=num_classes, deconv=False,
 ## CREDIT: Keras training on CIFAR-10 
 ## https://gist.github.com/giuseppebonaccorso/e77e505fc7b61983f7b42dc1250f31c8
 def Vonc(pretrained=True, weights_path=None, noutputs=num_classes, deconv=False, sz=32, layer=""):
-	if (pretrained):
+	if (pretrained and not weights_path):
 		weights_path = './data/weights/vonc_weights.h5'
 
 	inp = Input(shape = (sz, sz, 3), name="input")

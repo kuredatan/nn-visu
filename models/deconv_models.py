@@ -25,7 +25,7 @@ msg = "* Loaded weights! (DeconvNet)"
 
 ## CREDIT: https://gist.github.com/baraldilorenzo/07d7802847aaad0a35d3
 def VGG_16(pretrained=True, weights_path=None, noutputs=num_classes, layer="", sz=sz):
-	if (pretrained):
+	if (pretrained and not weights_path):
 		weights_path = './data/weights/vgg16_weights.h5'
 
 	pos1, pos2, pos3, pos4, pos5 = [None]*5
@@ -161,7 +161,7 @@ def VGG_16(pretrained=True, weights_path=None, noutputs=num_classes, layer="", s
 
 ## CREDIT: https://blog.plon.io/tutorials/cifar-10-classification-using-keras-tutorial/
 def Conv2(pretrained=True, weights_path=None, noutputs=num_classes, layer="", sz=sz):
-	if (pretrained):
+	if (pretrained and not weights_path):
 		weights_path = './data/weights/conv2_weights.h5'
 
 	pos1, pos2, pos3 = [None]*3
@@ -224,7 +224,7 @@ def Conv2(pretrained=True, weights_path=None, noutputs=num_classes, layer="", sz
 
 ## CREDIT: https://blog.plon.io/tutorials/cifar-10-classification-using-keras-tutorial/
 def Conv(pretrained=True, weights_path=None, noutputs=num_classes, layer="", sz=sz):
-	if (pretrained):
+	if (pretrained and not weights_path):
 		weights_path = './data/weights/conv_weights.h5'
 
 	pos1, pos2, pos3 = [None]*3
@@ -305,7 +305,7 @@ def Conv(pretrained=True, weights_path=None, noutputs=num_classes, layer="", sz=
 ## CREDIT: Keras training on CIFAR-10 
 ## https://gist.github.com/giuseppebonaccorso/e77e505fc7b61983f7b42dc1250f31c8
 def Vonc(pretrained=True, weights_path=None, noutputs=num_classes, deconv=False, sz=sz, layer=""):
-	if (pretrained):
+	if (pretrained and not weights_path):
 		weights_path = './data/weights/vonc_weights.h5'
 
 	pos1, pos2, pos3 = [None]*3

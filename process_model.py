@@ -27,6 +27,7 @@ from cats import dict_labels_cats
 from utils import grad_ascent
 import matplotlib.pyplot as plt
 from sklearn.metrics import classification_report, confusion_matrix
+import random
 
 ## Training models
 # python2.7 process_model.py --tmodel vonc --tdata CIFAR-10 --trun training --trained 0 --epoch 250 --lr 0.01 --optimizer Adam --batch 64
@@ -56,7 +57,7 @@ parser.add_argument('--tmodel', type=str, default='conv', metavar='M',
 parser.add_argument('--trun', type=str, default='training', metavar='R',
                     help='In ["training", "testing", "deconv"].')
 parser.add_argument('--tdata', type=str, default='CIFAR-10', metavar='D',
-                    help='In ["CIFAR-10", "CATS"].')
+                    help='In ["CIFAR-10", "CATS", "siamese"].')
 parser.add_argument('--batch', type=int, default=64, metavar='B',
                     help='Batch size.')
 parser.add_argument('--epoch', type=int, default=10, metavar='E',
@@ -89,10 +90,13 @@ folder += args.tdata + "/"
 if not os.path.exists(folder):
 	os.mkdir(folder)
 
-if not os.path.exists("./testing/"):
-        os.makedirs("./testing/")
-if not os.path.exists("./training/"):
-        os.makedirs("./training/")
+folder = "./traces/"
+if not os.path.exists(folder):
+	os.mkdir(folder)
+if not os.path.exists(folder+"testing/"):
+        os.makedirs(folder+"testing/")
+if not os.path.exists(folder+"training/"):
+        os.makedirs(folder+"training/")
 
 if not os.path.exists("./Figures/"):
         os.makedirs("./Figures/")
@@ -129,20 +133,19 @@ else:
 	training_means = [np.mean(X_train[:,:,i].astype('float32')) for i in range(3)]
 	preprocess_image = lambda x : normalize_input(x, sz, training_means)
 
-pos_shape_dict = {"conv": [(1, sz // 2, sz // 2, 32), (1, sz // 4, sz // 4, 64), (1, sz // 8, sz // 8, 128)], 
-	"conv2": [(1, sz // 2, sz // 2, 32), (1, sz // 4, sz // 4, 64)], 
-	"vonc": [(1, 14, 14, 64), (1, 6, 6, 128), (1, sz // 16, sz // 16, 128)], 
-	"vgg": [(1, 112, 112, 64), (1, sz // 4, sz // 4, 128), (1, sz // 8, sz // 8, 128*2), (1, sz // 16, sz // 16, 128*2*2), (1, sz // 32, sz // 32, 128*2*2)],
-}
-
 ## CREDIT: Keras training on CIFAR-10 
 ## https://gist.github.com/giuseppebonaccorso/e77e505fc7b61983f7b42dc1250f31c8
 
 ## CREDIT: https://github.com/tdeboissiere/DeepLearningImplementations/tree/master/DeconvNet
-if (args.trun != "training" and args.tdata == "CATS"):
-	list_img = glob.glob("./data/cats/*.jpg*")
-	assert len(list_img) > 0, "Put some images in the ./data/cats folder"
-	labels = [dict_labels_cats[img] for img in list_img]
+if (args.trun != "training" and args.tdata != "CIFAR-10"):
+	if (args.tdata == "CATS"):
+		list_img = glob.glob("./data/cats/*.jpg*")
+		assert len(list_img) > 0, "Put some images in the ./data/cats folder"
+		labels = [dict_labels_cats[img] for img in list_img]
+	if (args.tdata == "siamese"):
+		list_img = glob.glob("./data/siamese/*.jpg*")
+		assert len(list_img) > 0, "Put some images in the ./data/siamese folder"
+		labels = [284]*len(list_img)
 	if len(list_img) < args.batch:
 		list_img = (int(args.batch / len(list_img)) + 2) * list_img
 		list_img = list_img[:args.batch]
@@ -185,8 +188,8 @@ d_models = {"conv": models.Conv, "vgg": models.VGG_16, "conv2": models.Conv2, "v
 d_dmodels = {"conv": deconv_models.Conv, "vgg": deconv_models.VGG_16, "conv2": deconv_models.Conv2, "vonc": deconv_models.Vonc}
 
 ## NN model
-model = d_models[args.tmodel](pretrained=args.trained>0, deconv=args.trun == "deconv", sz=sz, layer=args.tlayer)
-if (args.trun != "deconv"):
+model = d_models[args.tmodel](pretrained=args.trained>0, deconv=args.trun in ["deconv", "final"], sz=sz, layer=args.tlayer)
+if (not args.trun in ["deconv", "final"]):
 	model.compile(loss=args.loss, optimizer=optimizer, metrics=['accuracy'])
 
 ## Print kernels in a given layer
@@ -203,8 +206,8 @@ layers = list(map(lambda x : x.name, model.layers))
 #plot_kernels(model, layer)
 
 ## "Deconvoluted" version of NN models
-if (args.trun == "deconv"):
-	if (not args.tlayer in layers):
+if (args.trun == "deconv" or args.trun == "final"):
+	if (not args.tlayer in layers and args.trun == "deconv"):
 		print(args.tlayer + " is not in layer list: " + str(layers))
 		raise ValueError
 	deconv_model = d_dmodels[args.tmodel](pretrained=args.trained>0, layer=args.tlayer, sz=sz)
@@ -223,9 +226,9 @@ def run_nn(datagen, X, Y_c, Y, batch_size, X_val=None, Y_val_c=None, training=Fa
 	batch = 0
 	if (training):
 		hist = model.fit_generator(datagen.flow(X, Y_c, batch_size=batch_size), verbose=1,
-			epochs=epochs,shuffle=True,steps_per_epoch=np.shape(X)[0]//batch_size,
+			epochs=epochs,shuffle=True,steps_per_epoch=max(5, np.shape(X)[0]//batch_size),
 			validation_data=datagen.flow(X_val, Y_val_c, batch_size=batch_size),
-			validation_steps=np.shape(X_val)[0]//batch_size,
+			validation_steps=max(np.shape(X_val)[0]//batch_size, 3),
 			callbacks=[EarlyStopping(monitor="loss", min_delta=0.001, patience=3)])
 	else:
 		for x_batch, y_batch in datagen.flow(X, Y_c, batch_size=batch_size):
@@ -299,12 +302,12 @@ def run_nn(datagen, X, Y_c, Y, batch_size, X_val=None, Y_val_c=None, training=Fa
 	plt.subplot('121')
 	plt.plot(epochs, acc, 'bo', label='Training acc')
 	plt.plot(epochs, val_acc, 'b', label='Validation acc')
-	plt.title('Training and validation accuracy')
+	plt.title('Training and validation accuracy for model ' + args.tmodel)
 	plt.legend()
 	plt.subplot('122')
 	plt.plot(epochs, loss, 'ro', label='Training loss')
 	plt.plot(epochs, val_loss, 'r', label='Validation loss')
-	plt.title('Training and validation loss')
+	plt.title('Training and validation loss for model ' + args.tmodel)
 	plt.legend()
 	mat = np.zeros((len(acc), 4))
 	obj = [acc, val_acc, loss, val_loss]
@@ -353,7 +356,7 @@ def save_fmap(out, layer="", sz=sz, normalize=False):
 		print("Saved in Figures/"+args.tmodel+"/"+args.tmodel+"_feature_map_layer" + layer + ".png")
 		fig.savefig("Figures/"+args.tmodel+"/"+args.tmodel+"_feature_map_layer" + layer + ".png", bbox_inches="tight")
 
-def save_inputs(filters, layer='', class_='', sz=sz, normalize=True):
+def save_inputs(filters, layer='', class_='', sz=sz, normalize=True, show=True):
 	fig = plt.figure(figsize=(20,20))
 	plt.axis('off')
 	n = len(filters)
@@ -376,7 +379,8 @@ def save_inputs(filters, layer='', class_='', sz=sz, normalize=True):
 	if (class_):
 		plt.title("Reconstructed inputs for maximizing activation in class " + class_)
 	fig = plt.gcf()
-	plt.show()
+	if (show):
+		plt.show()
 	if (query_yes_no("Save feature map?", default="yes")):
 		fig.savefig("Figures/"+args.tmodel+"/"+args.tmodel+"_feature_map_layer" + layer + ".png", bbox_inches="tight")
 		print("Saved in Figures/"+args.tmodel+"/"+args.tmodel+"_feature_map_layer" + layer + ".png")
@@ -442,7 +446,6 @@ if (args.trun == "deconv"):
 	## Reconstruct image with highest average activation for filter of index filter_index
 	## https://blog.keras.io/how-convolutional-neural-networks-see-the-world.html
 	## Select n filters randomly and reconstruct inputs
-	import random
 	## <!> Fixed layer
 	if (args.subtask == "fixed"):
 		n = 1 # < 10
@@ -473,3 +476,46 @@ if (args.trun == "deconv"):
 	model = d_models[args.tmodel](pretrained=args.trained>0, sz=sz, deconv=True, layer=layer_bfc)
 	deconv_imgs = [deconv_model.predict(model.predict([i])) for i in imgs]
 	save_inputs(deconv_imgs, layer="deconv_grad_ascent_im="+str(im_nb)+"_class="+str(class_), class_=imagenet1000[class_])
+## Final pipeline: 
+## python2.7 process_model.py --tmodel conv --trained 1 --trun final --batch 32 --tdata siamese --lr 0.0001 --loss sparse_categorical_crossentropy
+if (args.trun == "final"):
+	## STEP 2: Before training
+	n = 1 # < 10
+	m = 1
+	rand_range = random.sample(range(m), n)
+	layers = list(filter(lambda x : x[:6] != "interp" and x[:3] != "pos" and x[:5] != "input", map(lambda x : x.name, deconv_model.layers)))
+	im = np.zeros((1, sz, sz, 3))
+	#filters = [[grad_ascent(im, model, filter_index, layer_name=layer, batch_size=args.batch, step=args.lr) for filter_index in rand_range] for layer in layers]
+	layer_bfc = deconv_model.layers[2].name
+	model_ = d_models[args.tmodel](pretrained=args.trained>0, sz=sz, deconv=True, layer=layer_bfc)
+	#deconv_filters = [[deconv_model.predict(model_.predict([i])) for i in f] for f in filters]
+	hf = ''
+	for f in rand_range:
+		hf += str(f)+','
+	#for i in range(len(filters)):
+	#	save_inputs(deconv_filters[i], layer="deconv_b_training_layer="+layers[i]+"_filters="+hf, show=False)
+	## STEP 3: Training with the considered class
+	Y_test_c = to_categorical(Y_test, num_classes)
+	## Cut X_test into training and validation datasets
+	p = 0.30
+	n = np.shape(X_test)[0]
+	in_val = sample(range(n), int(p*n))
+	in_train = list(set(in_val).symmetric_difference(range(n)))
+	X_val = X_test[in_val, :, :, :]
+	Y_val = Y_test[in_val]
+	Y_val_c = Y_test_c[in_val, :]
+	X_test = X_test[in_train, :, :, :]
+	Y_test_c = Y_test_c[in_train, :]
+	## Remove data augmentation
+	model = d_models[args.tmodel](pretrained=args.trained>0, sz=sz, deconv=False)
+	model.compile(loss=args.loss, optimizer=optimizer, metrics=['accuracy'])
+	hist = run_nn(datagen_test, X_test, Y_test_c, Y_test, args.batch, X_val, Y_val_c, training=True)
+	## SAVE WEIGHTS
+	## STEP 4
+	model = d_models[args.tmodel](pretrained=args.trained>0, deconv=args.trun == "deconv", sz=sz, layer=args.tlayer)
+	layer_bfc = deconv_model.layers[2].name
+	model_ = d_models[args.tmodel](pretrained=args.trained>0, sz=sz, deconv=True, layer=layer_bfc)
+	filters = [[grad_ascent(im, model, filter_index, layer_name=layer, batch_size=args.batch, step=args.lr) for filter_index in rand_range] for layer in layers]
+	deconv_filters = [[deconv_model.predict(model_.predict([i])) for i in f] for f in filters]
+	for i in range(len(filters)):
+		save_inputs(deconv_filters[i], layer="deconv_a_training_layer="+layers[i]+"_filters="+hf, show=False)

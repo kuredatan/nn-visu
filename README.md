@@ -1,7 +1,3 @@
-# Source code
-
-This [GitHub](https://github.com/tdeboissiere/DeepLearningImplementations/tree/master/DeconvNet)
-
 # Data and weights
 
 Create a folder **data/** at the root of the repo and put inside the folder **weights/** with the weights associated with VGG (trained on ImageNet: save the weights obtained with the Keras model VGG, see *models/models.py*) and the two small CNNs "Vonc" and "Conv" (trained with CIFAR-10 training set).

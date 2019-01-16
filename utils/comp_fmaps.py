@@ -119,7 +119,7 @@ def results_correspondences(inliers, list_img, fname, matches):
 		np.savetxt(fname + "_contributions.dat", contributions, delimiter='\n', header=header)
 		m = np.argmax(contributions)
 		src, dst = matches[m]
-		return m
+		return m, contributions
 	else:
 		print("No inliers!!")
 	return None
@@ -314,7 +314,7 @@ def corresp_comparison(fmap, images_list, name="cats", fmap_name="1", list_img=[
 		src_dst = [[frames_fmap[inliers[i][:, 0], :2], frames[i][inliers[i][:, 1], :2]] for i in range(n)]
 	fname = folder + name + "_" + fmap_name
 	matches = src_dst
-	m = results_correspondences(inliers, list_img, fname, matches)
+	m, contributions = results_correspondences(inliers, list_img, fname, matches)
 	if (m):
 		from skimage.feature import plot_matches
 		fig, ax = plt.subplots(nrows=1, ncols=1)
@@ -329,6 +329,7 @@ def corresp_comparison(fmap, images_list, name="cats", fmap_name="1", list_img=[
 		plt.figure()
 		plot_matches(ax, im2, im1, frames_fmap[:, :2], frames[m][:, :2], inliers[m])
 		plt.show()
+	return contributions
 
 ###########################################
 ## Harris corner key point repeatability ##
@@ -371,9 +372,11 @@ def repeatability_harris(fmap, images_list, name="cats", fmap_name="1", list_img
 	fname = folder + name + "_" + fmap_name
 	inliers = [m[0] for m in matches]
 	matches = [m[1:] for m in matches]
-	m = results_correspondences(inliers, list_img, fname, matches)
+	m, contributions = results_correspondences(inliers, list_img, fname, matches)
 	if (m):
-		plm.plot_correspondences(fmap, images_list[m], matches[m][0], matches[m][1], inliers[m])
+		pass
+		#plm.plot_correspondences(fmap, images_list[m], matches[m][0], matches[m][1], inliers[m])
+	return contributions
 
 ###################################################################
 

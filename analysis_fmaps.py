@@ -60,8 +60,14 @@ if (args.tmethod == "bow"):
 	sb.call("mv ./image_input_closest.png ./slides+report/figures_/bow_analysis/", shell=True)
 	sb.call("mv ./data/bow_sift_comp/bow/bow_"+data+"_1_scores.dat ./slides+report/figures_/bow_analysis/", shell=True)
 if (args.tmethod == "sift"):
-	corresp_comparison(fmap, images_list, name=data, fmap_name=str(ntry), list_img=list_img)
-	sb.call("mv ./data/bow_sift_comp/corresp/corresp_"+data+"_1_contributions.dat ./slides+report/figures_/sift_analysis/", shell=True)
+	contributions = corresp_comparison(fmap, images_list, name=data, fmap_name=str(ntry), list_img=list_img)
+	if (args.nb):
+		sb.call("mv ./data/bow_sift_comp/corresp/corresp_"+data+"_"+args.nb+"_contributions.dat ./slides+report/", shell=True)
+	else:
+		sb.call("mv ./data/bow_sift_comp/corresp/corresp_"+data+"_1_contributions.dat ./slides+report/", shell=True)	
 if (args.tmethod == "harris"):
-	repeatability_harris(fmap, images_list, name=data, fmap_name=str(ntry), list_img=list_img)
-	sb.call("mv ./data/bow_sift_comp/harris/harris_"+data+"_1_contributions.dat ./slides+report/figures_/harris_analysis/", shell=True)
+	contributions = repeatability_harris(fmap, images_list, name=data, fmap_name=str(ntry), list_img=list_img)
+	if (args.nb):
+		sb.call("mv ./data/bow_sift_comp/harris/harris_"+data+"_1_contributions.dat ./slides+report/contributions/harris_"+data+"_"+args.nb+"_contributions.dat", shell=True)
+	else:
+		sb.call("mv ./data/bow_sift_comp/harris/harris_"+data+"_1_contributions.dat ./slides+report/contributions/harris_"+data+"_"+args.tlayer+"_contributions.dat", shell=True)

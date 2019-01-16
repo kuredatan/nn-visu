@@ -13,6 +13,10 @@ def resize(im, shape):
 	if (len(np.shape(im)) < 4):
 		im = np.expand_dims(im, axis=0)
 	a, b, c, d = shape
+	if (b == c):
+		## Square image, removing channel shape
+		m = np.min(im.shape[:-1])
+		im = im[:, :m, :m, :]
 	res = np.zeros(shape)
 	for j in range(a):
 		for i in range(d):

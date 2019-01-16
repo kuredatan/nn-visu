@@ -131,7 +131,7 @@ def print_image(x):
 if (args.tmodel == "vgg"):
 	sz = 224
 	preprocess_image = lambda x : resize(x, (np.shape(x)[0], sz, sz, 3)) if (len(np.shape(x)) == 4) else resize(x, (1, sz, sz, 3))
-	#preprocess_input(resize(x, (1, sz, sz, 3)))
+	## preprocess_input(resize(x, (np.shape(x)[0], sz, sz, 3)))
 else:
 	sz = 32
 	training_means = [np.mean(X_train[:,:,i].astype('float32')) for i in range(3)]
@@ -430,7 +430,7 @@ if (args.trun == "deconv"):
 	print("** Layer: " + args.tlayer + " **")
 	im = preprocess_image(np.expand_dims(X_test[im_nb, :, :, :], axis=0))
 	out = model.predict([im])
-	save_fmap(out, layer="im="+str(im_nb)+"_output_model_" + args.tlayer)
+	#save_fmap(out, layer="im="+str(im_nb)+"_output_model_" + args.tlayer)
 	if (args.verbose == 1):
 		print("#outputs = " + str(len(out)) + " of sizes:")
 		print(list(map(np.shape, out)))

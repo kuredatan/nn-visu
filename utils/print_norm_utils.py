@@ -79,7 +79,7 @@ def load_input(im_name, sz):
 	return im
 
 ## Source: https://stackoverflow.com/questions/3041986/apt-command-line-interface-like-yes-no-input
-def query_yes_no(question, default="yes"):
+def query_yes_no(question, all_=False, default="yes"):
     """Ask a yes/no question via raw_input() and return their answer.
 
     "question" is a string that is presented to the user.
@@ -91,6 +91,8 @@ def query_yes_no(question, default="yes"):
     """
     valid = {"yes": True, "y": True, "ye": True,
              "no": False, "n": False}
+    if (all_):
+        return valid["yes"]
     if default is None:
         prompt = " [y/n] "
     elif default == "yes":

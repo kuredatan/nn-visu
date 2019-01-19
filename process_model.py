@@ -84,6 +84,8 @@ parser.add_argument('--loss', type=str, default="categorical_crossentropy", meta
                     help='Choice of loss function, among those supported by Keras.')
 parser.add_argument('--nb', type=str, default="", metavar='B',
                     help='Number of experiment in final pipeline (rename automatically the resulting figures).')
+parser.add_argument('--all', type=int, default=0, metavar='A',
+                    help='Automatically saving all figures and code ["0" or "1"].')
 args = parser.parse_args()
 
 folder = "./data/figures/"
@@ -268,7 +270,7 @@ def run_nn(datagen, X, Y_c, Y, batch_size, X_val=None, Y_val_c=None, training=Fa
 	caract = names[0]+"="+feat[0]
 	for i in range(1, len(names)):
 		caract += "_" + names[i]+"="+feat[i]
-	if (query_yes_no("Save confusion matrix/report?", default="yes")):
+	if (query_yes_no("Save confusion matrix/report?", all_=args.all, default="yes")):
 		header = ""
 		for t in target:
 			header += t+","
@@ -317,14 +319,14 @@ def run_nn(datagen, X, Y_c, Y, batch_size, X_val=None, Y_val_c=None, training=Fa
 	obj = [acc, val_acc, loss, val_loss]
 	for i in range(4):
 		mat[:, i] = obj[i]
-	if (query_yes_no("Save loss/accuracy values?", default="yes")):
+	if (query_yes_no("Save loss/accuracy values?", default="yes", all_=args.all)):
 		np.savetxt("loss_acc_"+caract+".csv", mat, header="acc,val_acc,loss,val_loss")
 	fig = plt.gcf()	
 	if (args.verbose):
 		plt.show()
-	if (query_yes_no("Save loss/accuracy curves?", default="yes")):
+	if (query_yes_no("Save loss/accuracy curves?", default="yes", all_=args.all)):
 		fig.savefig(args.tmodel+"_"+args.tdata+"_loss_acc_curves.png", bbox_inches="tight")
-	if (query_yes_no("Save weights?", default="yes")):
+	if (query_yes_no("Save weights?", default="yes", all_=args.all)):
 		model.save_weights('./data/weights/'+args.tmodel+'_weights.h5')
 	return hist
 
@@ -356,7 +358,7 @@ def save_fmap(out, layer="", sz=sz, normalize=False):
 	plt.axis('off')
 	plt.title("Feature map for layer " + layer[1:])
 	fig = plt.gcf()
-	if (query_yes_no("Save feature map?", default="yes")):
+	if (query_yes_no("Save feature map?", default="yes", all_=args.all)):
 		print("Saved in Figures/"+args.tmodel+"/"+args.tmodel+"_feature_map_layer" + layer + ".png")
 		fig.savefig("Figures/"+args.tmodel+"/"+args.tmodel+"_feature_map_layer" + layer + ".png", bbox_inches="tight")
 
@@ -387,7 +389,7 @@ def save_inputs(filters, layer='', class_='', sz=sz, normalize=True, show=True, 
 	fig = plt.gcf()
 	if (show):
 		plt.show()
-	if (query_yes_no("Save feature map?", default="yes")):
+	if (query_yes_no("Save feature map?", default="yes", all_=args.all)):
 		fig.savefig("Figures/"+args.tmodel+"/"+args.tmodel+"_feature_map_layer" + layer + nb + ".png", bbox_inches="tight")
 		print("Saved in Figures/"+args.tmodel+"/"+args.tmodel+"_feature_map_layer" + layer + nb + ".png")
 
@@ -513,7 +515,9 @@ if (args.trun == "final"):
 		for f in rand_range:
 			hf += str(f)+','
 		for i in range(len(filters)):
-			save_inputs(deconv_filters[i], layer="deconv_b_training_layer="+layers[i]+"_filters="+hf, show=False)
+			save_inputs(deconv_filters[i], layer="deconv_b_training_layer="+layers[i]+"_deconv_filters="+hf, show=False)
+		for i in range(len(filters)):
+			save_inputs(filters[i], layer="deconv_b_training_layer="+layers[i]+"_filters="+hf, show=False)
 	###### Get the reconstructed inputs yielding highest mean activation in 
 	###### class_ output (wrt ImageNet labels) of softmax layer
 	if (todo["max_act_class_btrain"]):
@@ -526,6 +530,7 @@ if (args.trun == "final"):
 		layer_bfc = deconv_model.layers[2].name
 		model = d_models[args.tmodel](pretrained=args.trained>0, sz=sz, deconv=True, layer=layer_bfc)
 		deconv_imgs = [deconv_model.predict(model.predict([i])) for i in imgs]
+		save_inputs(imgs, layer="b_training_class="+str(class_), class_=imagenet1000[class_], show=False)
 		save_inputs(deconv_imgs, layer="b_training_deconv_class="+str(class_), class_=imagenet1000[class_], show=False)
 	## STEP 3: Training with the considered class
 	###### 
@@ -567,7 +572,9 @@ if (args.trun == "final"):
 		filters = [[grad_ascent(im, model, filter_index, layer_name=layer, batch_size=args.batch, step=args.step) for filter_index in rand_range] for layer in layers]
 		deconv_filters = [[deconv_model.predict(model_.predict([i])) for i in f] for f in filters]
 		for i in range(len(filters)):
-			save_inputs(deconv_filters[i], layer="deconv_a_training_layer="+layers[i]+"_filters="+hf, show=False)
+			save_inputs(filters[i], layer="deconv_a_training_layer="+layers[i]+"_filters="+hf, show=False)
+		for i in range(len(filters)):
+			save_inputs(deconv_filters[i], layer="deconv_a_training_layer="+layers[i]+"_deconv_filters="+hf, show=False)
 	###### Get the reconstructed inputs yielding highest mean activation in 
 	###### class_ output (wrt ImageNet labels) of softmax layer
 	if (todo["max_act_class_atrain"]):
@@ -580,4 +587,5 @@ if (args.trun == "final"):
 		layer_bfc = deconv_model.layers[2].name
 		model = d_models[args.tmodel](pretrained=args.trained>0, weights_path=wname, sz=sz, deconv=True, layer=layer_bfc)
 		deconv_imgs = [deconv_model.predict(model.predict([i])) for i in imgs]
+		save_inputs(imgs, layer="a_training_class="+str(class_), class_=imagenet1000[class_], show=False)
 		save_inputs(deconv_imgs, layer="a_training_deconv_class="+str(class_), class_=imagenet1000[class_], show=False)

@@ -307,11 +307,11 @@ def corresp_comparison(fmap, images_list, name="cats", fmap_name="1", list_img=[
 	for i in range(n):
 		matches[i][:,0]=range(N_frames1)
 		matches[i][:,1]=[np.argmin(build_arr(descrs_fmap[j, :], descrs_list[i])) for j in range(nu)]
-	for i in range(n):
-		# robustly estimate affine transform model with RANSAC
-		ransacs_idx = [ransac(frames_fmap,frames[i],matches[i])[1] for i in range(n)]
-		inliers = [matches[i][ransacs_idx[i],:] for i in range(n)]
-		src_dst = [[frames_fmap[inliers[i][:, 0], :2], frames[i][inliers[i][:, 1], :2]] for i in range(n)]
+	# robustly estimate affine transform model with RANSAC
+	ransacs_idx = [ransac(frames_fmap,frames[i],matches[i])[1] for i in range(n)]
+	inliers = [matches[i][ransacs_idx[i],:] for i in range(n)]
+	frames = [frames[i][ransacs_idx[i], :] for i in range(n)]
+	src_dst = [[frames_fmap[inliers[i][:, 0], :2], frames[i][inliers[i][:, 1], :2]] for i in range(n)]
 	fname = folder + name + "_" + fmap_name
 	matches = src_dst
 	m, contributions = results_correspondences(inliers, list_img, fname, matches)

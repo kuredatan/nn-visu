@@ -71,16 +71,17 @@ def find_correspondences(im1, im2, coords1, coords2):
 	model_robust, inliers = ransac_(src, dst)
 	return inliers, src, dst
 
-def plot_correspondences(im1, im2, src, dst, inliers):
-	inlier_idxs = np.nonzero(inliers)[0]
-	plt.imshow(im1)
-	plt.show()
-	raise ValueError
-	fig, ax = plt.subplots(nrows=1, ncols=1)
-	im1 = np.resize(im1, (32, 32))
-	im2 = np.resize(im2, (32, 32))
-	plot_matches(ax, im1, im2, src, dst, np.column_stack((inlier_idxs, inlier_idxs)), matches_color='b')
-	ax.axis('off')
-	ax.set_title('RANSAC filtered correspondances with closest image')
+## SOURCE: practicals #1 from Andrea Vedaldi and Andrew Zisserman, Gul Varol and Ignacio Rocco
+def plot_correspondences(im1, im2, frames1, frames2, matches):
+	# plot matches
+	plt.imshow(np.concatenate((im1,im2),axis=1))
+	for i in range(len(frames1)):
+		j=matches[i,1]
+		# plot dots at feature positions
+		plt.gca().scatter([frames1[i,0],im1.shape[1]+frames2[j,0]], [frames1[i,1],frames2[j,1]], s=5, c=[0,1,0])
+		# plot lines
+		plt.plot([frames1[i,0],im1.shape[1]+frames2[j,0]],[frames1[i,1],frames2[j,1]],linewidth=0.5)
+	plt.axis('off')
+	plt.set_title('RANSAC filtered correspondances with closest image')
 	plt.savefig("ransac_correspondances.png", bbox_inches="tight")
 	plt.show()

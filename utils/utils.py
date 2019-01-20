@@ -17,7 +17,7 @@ def plot_grad_ascent(img):
 	img = np.resize(img, np.shape(img)[1:])
 	plt.imshow(img)
 	plt.title("Reconstructed input with Gradient Ascent")
-	plt.grid(False)
+	plt.axis('off')
 	plt.savefig("../Figures/grad_ascent_plot.png", bbox_inches="tight")
 	plt.show()
 

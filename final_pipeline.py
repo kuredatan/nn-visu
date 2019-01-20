@@ -6,7 +6,7 @@ import subprocess as sb
 
 parser = argparse.ArgumentParser(description='Analysis of deconvoluted images')
 parser.add_argument('--tmodel', type=str, default='conv', metavar='M',
-                    help='CNN to visualize/analyze ["conv", "vonc", "conv2", "vgg"].')
+                    help='CNN to visualize/analyze ["conv", "vonc", "conv2", "vgg16"].')
 parser.add_argument('--ntry', type=int, default=10, metavar='N',
                     help='Number of experiments for analyzing of training process (see report).')
 parser.add_argument('--start', type=int, default=0, metavar='N',

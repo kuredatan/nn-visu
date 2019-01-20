@@ -38,7 +38,7 @@ def load_input(im_name):
 	return im
 
 def plot_bovw(hst, fmap_name, title="mystery image"):
-	plt.hist(np.histogram(hst))
+	plt.hist(hst[:, 0], weights=hst[:, 1])
 	plt.title("Bag-of-Visual-Words with " + title)
 	plt.xlabel("Word ID")
 	plt.ylabel("\'Count\'")
@@ -48,12 +48,12 @@ def plot_bovw(hst, fmap_name, title="mystery image"):
 def plot_bovw_compare(query_hist, hst, score, fmap_name):
 	plt.figure(figsize=(10, 4.19))
 	plt.subplot('121')
-	plt.hist(np.histogram(query_hist))
+	plt.hist(query_hist[:, 0], weights=query_hist[:, 1])
 	plt.title("Bag-of-Visual-Words with input image/feat_map")
 	plt.xlabel("Word ID")
 	plt.ylabel("\'Count\'")
 	plt.subplot('122')
-	plt.hist(np.histogram(hst))
+	plt.hist(hst[:, 0], weights=hst[:, 1])
 	plt.title("Bag-of-Visual-Words with closest image (score = "+ str(round(score, 2))+")")
 	plt.xlabel("Word ID")
 	plt.ylabel("\'Count\'")

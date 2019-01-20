@@ -51,7 +51,7 @@ np.random.seed(1000)
 
 parser = argparse.ArgumentParser(description='Simple NN models')
 parser.add_argument('--tmodel', type=str, default='conv', metavar='M',
-                    help='In ["conv2", "conv", "vonc", "vgg"] ONLY.')
+                    help='In ["conv2", "conv", "vonc", "vgg16", "resnet50"] ONLY.')
 parser.add_argument('--trun', type=str, default='training', metavar='R',
                     help='In ["training", "testing", "deconv"].')
 parser.add_argument('--tdata', type=str, default='CIFAR-10', metavar='D',
@@ -130,9 +130,9 @@ pred_argmax = lambda y : [imagenet1000[np.argmax(y[i, :])] for i in range(len(y)
 
 import unicodedata
 
-if (args.tmodel == "vgg" or args.tmodel == "resnet50"):
+if (args.tmodel == "vgg16" or args.tmodel == "resnet50"):
 	sz = 224
-	if (args.tmodel == "vgg"):
+	if (args.tmodel == "vgg16"):
 		from keras.applications.vgg16 import preprocess_input
 		from keras.applications.vgg16 import decode_predictions
 	if (args.tmodel == "resnet50"):
@@ -199,8 +199,8 @@ Y_train_c = Y_train_c[in_train, :]
 ##################################################################################
 ############# MODELS
 
-d_models = {"conv": models.Conv, "vgg": models.VGG_16, "conv2": models.Conv2, "vonc": models.Vonc, "resnet50": models.ResNet_50}
-d_dmodels = {"conv": deconv_models.Conv, "vgg": deconv_models.VGG_16, "conv2": deconv_models.Conv2, "vonc": deconv_models.Vonc, "resnet50": deconv_models.ResNet_50}
+d_models = {"conv": models.Conv, "vgg16": models.VGG_16, "conv2": models.Conv2, "vonc": models.Vonc, "resnet50": models.ResNet_50}
+d_dmodels = {"conv": deconv_models.Conv, "vgg16": deconv_models.VGG_16, "conv2": deconv_models.Conv2, "vonc": deconv_models.Vonc, "resnet50": deconv_models.ResNet_50}
 
 ## NN model
 model = d_models[args.tmodel](pretrained=args.trained>0, deconv=args.trun in ["deconv", "final"], sz=sz, layer=args.tlayer)
@@ -457,7 +457,7 @@ if (args.trun == "deconv"):
 	## Feature images
 	out = deconv_model.predict(out)
 	if (args.verbose):
-		process_fmap(out, im, layer=args.tlayer, normalize=(args.tmodel == "vgg"))
+		process_fmap(out, im, layer=args.tlayer, normalize=(args.tmodel == "vgg16"))
 	save_fmap(out, layer="im="+str(im_nb)+"_"+args.tlayer)
 	## Weights
 	weight = model.layers[layer_nb].get_weights()
@@ -465,7 +465,7 @@ if (args.trun == "deconv"):
 		for i in range(len(weight)):
 			weight = weight[i]*255.
 			if (args.verbose):
-				process_fmap(weight, im, layer="weight" + str(i) + "_"+args.tlayer, normalize=(args.tmodel == "vgg"))
+				process_fmap(weight, im, layer="weight" + str(i) + "_"+args.tlayer, normalize=(args.tmodel == "vgg16"))
 			save_fmap(weight, layer="im="+str(im_nb)+"_weight" + str(i) + "_"+args.tlayer)
 	else:
 		print("Layer " + args.tlayer + " has no weights!")
@@ -552,11 +552,11 @@ if (args.trun == "final"):
 		X_test = X_test[in_train, :, :, :]
 		Y_test = Y_test[in_train]
 		Y_test_c = Y_test_c[in_train, :]
-		if (args.tmodel != "vgg" and args.tmodel != "resnet50"):
+		if (args.tmodel != "vgg16" and args.tmodel != "resnet50"):
 			model = d_models[args.tmodel](pretrained=args.trained>0, sz=sz, deconv=False)
 		else:
 			## Directly import the model from Keras
-			if (args.tmodel == "vgg"):
+			if (args.tmodel == "vgg16"):
 				from keras.applications.vgg16 import VGG16
 				model = VGG16(include_top=True, weights="imagenet", classes=num_classes)
 			if (args.tmodel == "resnet50"):

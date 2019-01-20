@@ -15,7 +15,7 @@ parser = argparse.ArgumentParser(description='Analysis of deconvoluted images')
 parser.add_argument('--tname', type=str, default='', metavar='N',
                     help='Name of image to analyze.')
 parser.add_argument('--tmodel', type=str, default='', metavar='M',
-                    help='Name of model to analyze (if --tname is not specified). In ["vgg", "conv"]')
+                    help='Name of model to analyze (if --tname is not specified). In ["vgg16", "conv", ...]')
 parser.add_argument('--texperiment', type=str, default='', metavar='E',
                     help='Name of experiment to run (if --tname is not specified). In ["outputs", "reconst"]')
 parser.add_argument('--nb', type=str, default='', metavar='B',

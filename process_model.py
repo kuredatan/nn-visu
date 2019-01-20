@@ -103,7 +103,7 @@ folder = "./data/bow_sift_comp/"
 folders = [folder+'bow/', folder+'corresp/', folder+'harris/']
 for f in folders:
 	if not os.path.exists(f):
-		os.mkdir(f)
+		os.makedirs(f)
 
 if (args.optimizer == "SGD"):
 	optimizer = SGD(lr = args.lr, decay=args.decay, momentum=args.momentum, nesterov=True)

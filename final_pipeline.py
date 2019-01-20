@@ -23,7 +23,7 @@ if (args.start):
 else:
 	rang = range(1, args.ntry+1)
 
-assert args.tmethod and args.ntry and args.models, "Give values to input arguments"
+assert args.tmethod and args.ntry and args.tmodel, "Give values to input arguments"
 
 print("#"*60)
 if (arg.tmethod == "outputs"):

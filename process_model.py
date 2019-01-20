@@ -104,6 +104,18 @@ if not os.path.exists("./Figures/exp/exp_"+args.tmodel+"/reconst"):
 if not os.path.exists("./Figures/exp/exp_"+args.tmodel+"/outputs"):
         os.makedirs("./Figures/exp/exp_"+args.tmodel+"/outputs")
 
+folder = "./slides+report/"
+if not os.path.exists(folder):
+        os.makedirs(folder)
+if not os.path.exists(folder +"contributions/"):
+        os.makedirs(folder +"contributions/")
+folder += "figures_/"
+if not os.path.exists(folder):
+        os.makedirs(folder)
+folder += "bow_analysis/"
+if not os.path.exists(folder):
+        os.makedirs(folder)
+
 folder = "./data/bow_sift_comp/"
 folders = [folder+'bow/', folder+'corresp/', folder+'harris/']
 for f in folders:
@@ -464,49 +476,40 @@ if (args.trun == "deconv"):
 	if (args.verbose):
 		process_fmap(out, im, layer=args.tlayer, normalize=(args.tmodel == "vgg16"))
 	save_fmap(out, layer="im="+str(im_nb)+"_"+args.tlayer)
-	## Weights
-	weight = model.layers[layer_nb].get_weights()
-	if (len(weight) > 0):
-		for i in range(len(weight)):
-			weight = weight[i]*255.
-			if (args.verbose):
-				process_fmap(weight, im, layer="weight" + str(i) + "_"+args.tlayer, normalize=(args.tmodel == "vgg16"))
-			save_fmap(weight, layer="im="+str(im_nb)+"_weight" + str(i) + "_"+args.tlayer)
-	else:
-		print("Layer " + args.tlayer + " has no weights!")
-	## Reconstruct image with highest average activation for filter of index filter_index
-	## https://blog.keras.io/how-convolutional-neural-networks-see-the-world.html
-	## Select n filters randomly and reconstruct inputs
-	## <!> Fixed layer
-	if (args.subtask == "fixed"):
-		n = 1 # < 10
-		m = 1
-		rand_range = random.sample(range(m), n)
-		filters = [grad_ascent(im, model, filter_index, layer_name=args.tlayer, batch_size=args.batch, step=args.step) for filter_index in rand_range]
-	## <!> Compare different layers
-	else:
-		filter_index = 0
-		layers = list(filter(lambda x : x[:6] != "interp" and x[:3] != "pos" and x[:5] != "input", map(lambda x : x.name, deconv_model.layers)))
-		filters = [grad_ascent(im, model, filter_index, layer_name=layer, batch_size=args.batch, step=args.step) for layer in layers]
-	save_inputs(filters, layer="grad_ascent_im="+str(im_nb)+"_"+args.tlayer)
-	## Deconv them
-	deconv_filters = [deconv_model.predict(model.predict([f])) for f in filters]
-	save_inputs(deconv_filters, layer="deconv_grad_ascent_im="+str(im_nb)+"_"+args.tlayer)
-	## Reconstruct image with highest average activation for class
-	## https://blog.keras.io/how-convolutional-neural-networks-see-the-world.html
-	class_ = 284
-	ntries = 1
-	## Full model and DeconvNet
-	deconv_model = d_dmodels[args.tmodel](pretrained=args.trained>0, sz=sz)
-	model = d_models[args.tmodel](pretrained=args.trained>0, sz=sz, deconv=True)
-	imgs = [grad_ascent(im, model, class_, batch_size=args.batch, step=args.step) for i in range(ntries)]
-	save_inputs(imgs, layer="grad_ascent_im="+str(im_nb)+"_class="+str(class_), class_=imagenet1000[class_])
-	## Deconv them
-	## Select layer before the FC part
-	layer_bfc = deconv_model.layers[2].name
-	model = d_models[args.tmodel](pretrained=args.trained>0, sz=sz, deconv=True, layer=layer_bfc)
-	deconv_imgs = [deconv_model.predict(model.predict([i])) for i in imgs]
-	save_inputs(deconv_imgs, layer="deconv_grad_ascent_im="+str(im_nb)+"_class="+str(class_), class_=imagenet1000[class_])
+	if (False):
+		## Weights
+		weight = model.layers[layer_nb].get_weights()
+		if (len(weight) > 0):
+			for i in range(len(weight)):
+				weight = weight[i]*255.
+				if (args.verbose):
+					process_fmap(weight, im, layer="weight" + str(i) + "_"+args.tlayer, normalize=(args.tmodel == "vgg16"))
+				save_fmap(weight, layer="im="+str(im_nb)+"_weight" + str(i) + "_"+args.tlayer)
+		else:
+			print("Layer " + args.tlayer + " has no weights!")
+		## Reconstruct image with highest average activation for filter of index filter_index
+		## https://blog.keras.io/how-convolutional-neural-networks-see-the-world.html
+		## Select n filters randomly and reconstruct inputs
+		## <!> Fixed layer
+		if (args.subtask == "fixed"):
+			n = 1 # < 10
+			m = 1
+			rand_range = random.sample(range(m), n)
+			filters = [grad_ascent(im, model, filter_index, layer_name=args.tlayer, batch_size=args.batch, step=args.step) for filter_index in rand_range]
+		## <!> Compare different layers
+		else:
+			filter_index = 0
+			layers = list(filter(lambda x : x[:6] != "interp" and x[:3] != "pos" and x[:5] != "input", map(lambda x : x.name, deconv_model.layers)))
+			filters = [grad_ascent(sz, model, filter_index, layer_name=layer, batch_size=args.batch, step=args.step) for layer in layers]
+		save_inputs(filters, layer="grad_ascent_im="+str(im_nb)+"_"+args.tlayer)
+		## Reconstruct image with highest average activation for class
+		## https://blog.keras.io/how-convolutional-neural-networks-see-the-world.html
+		class_ = 284
+		ntries = 1
+		## Full model
+		model = d_models[args.tmodel](pretrained=args.trained>0, sz=sz, deconv=True)
+		imgs = [grad_ascent(sz, model, class_, batch_size=args.batch, step=args.step) for i in range(ntries)]
+		save_inputs(imgs, layer="grad_ascent_im="+str(im_nb)+"_class="+str(class_), class_=imagenet1000[class_])
 ## Final pipeline: Call
 ## python2.7 process_model.py --tmodel conv --trained 1 --trun final --batch 32 --tdata siamese --lr 0.001 --optimizer Adam --loss categorical_crossentropy --epoch 10
 ## python2.7 process_model.py --tmodel vgg --trained 1 --trun final --batch 32 --tdata siamese --lr 0.001 --optimizer Adam --loss categorical_crossentropy --epoch 10 --all 1 --nb 302 --step 1 --tlayer block3_conv3

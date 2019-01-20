@@ -3,7 +3,7 @@
 from imagenet1000 import imagenet1000
 
 def get_label(name):
-	labels = imagenet1000.values()
+	labels = list(imagenet1000.values())
 	return imagenet1000.keys()[labels.index(name)]
 
 dict_labels_cats = {'./data/cats/cat8.jpg': get_label('tiger cat'), 

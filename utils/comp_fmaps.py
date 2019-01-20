@@ -32,7 +32,7 @@ folder = "./data/bow_sift_comp/"
 ## TOOLS ##
 ###########
 
-def load_input(im_name):
+def load_input(im_name, sz=224):
 	#print(im_name)
 	img = Image.open(im_name)
 	img.load()

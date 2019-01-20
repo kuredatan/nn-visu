@@ -546,7 +546,6 @@ if (args.trun == "final"):
 		X_test = X_test[in_train, :, :, :]
 		Y_test = Y_test[in_train]
 		Y_test_c = Y_test_c[in_train, :]
-		## Remove data augmentation
 		if (args.tmodel != "vgg" and args.tmodel != "resnet50"):
 			model = d_models[args.tmodel](pretrained=args.trained>0, sz=sz, deconv=False)
 		else:
@@ -558,6 +557,7 @@ if (args.trun == "final"):
 				from keras.applications.resnet50 import ResNet50
 				model = ResNet50(include_top=True, weights="imagenet", classes=num_classes)
 		model.compile(loss=args.loss, optimizer=optimizer, metrics=['accuracy'])
+		## Remove data augmentation
 		hist = model.fit(preprocess_image(X_test), Y_test_c, batch_size=args.batch, verbose=1,
 				epochs=args.epoch,shuffle=True,
 				validation_data=(preprocess_image(X_val), Y_val_c),

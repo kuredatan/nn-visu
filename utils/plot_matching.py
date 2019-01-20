@@ -5,8 +5,7 @@ from matplotlib import pyplot as plt
 
 from skimage import data
 from skimage.util import img_as_float
-from skimage.feature import (corner_harris, corner_subpix, corner_peaks,
-                             plot_matches)
+from skimage.feature import (corner_harris, corner_subpix, corner_peaks, plot_matches)
 from skimage.transform import warp, AffineTransform
 from skimage.exposure import rescale_intensity
 from skimage.color import rgb2gray
@@ -74,12 +73,13 @@ def find_correspondences(im1, im2, coords1, coords2):
 
 def plot_correspondences(im1, im2, src, dst, inliers):
 	inlier_idxs = np.nonzero(inliers)[0]
+	plt.imshow(im1)
+	plt.show()
+	raise ValueError
 	fig, ax = plt.subplots(nrows=1, ncols=1)
-	plt.gray()
 	im1 = np.resize(im1, (32, 32))
 	im2 = np.resize(im2, (32, 32))
-	plot_matches(ax, im1, im2, src, dst,
-		     np.column_stack((inlier_idxs, inlier_idxs)), matches_color='b')
+	plot_matches(ax, im1, im2, src, dst, np.column_stack((inlier_idxs, inlier_idxs)), matches_color='b')
 	ax.axis('off')
 	ax.set_title('RANSAC filtered correspondances with closest image')
 	plt.savefig("ransac_correspondances.png", bbox_inches="tight")

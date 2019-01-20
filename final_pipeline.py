@@ -13,6 +13,8 @@ parser.add_argument('--start', type=int, default=0, metavar='N',
                     help='Start index of experiments for analyzing of training process (see report). (optional)')
 parser.add_argument('--tmethod', type=str, default='bow', metavar='H',
                     help='Method: [\'bow\', \'sift\', \'harris\'].')
+parser.add_argument('--py', type=str, default='2.7', metavar='P',
+                    help='Python version for which Keras and Tensorflow have been installed: [\'2.7\', \'3.6\', ...].')
 args = parser.parse_args()
 
 if (args.start):
@@ -23,7 +25,7 @@ else:
 for i in rang:
 	calls = []
 	ncalls = ["GENERATING INPUTS #"+str(i), "ANALYSIS BEFORE TRAINING", "ANALYSIS AFTER TRAINING"]
-	calls.append("python2.7 process_model.py --tmodel "+args.tmodel+" --trained 1 --trun final --batch 32 --tdata siamese --lr 0.001 --optimizer Adam --loss categorical_crossentropy --epoch 10 --all 1 --nb "+str(i)+" --step 1")
+	calls.append("python"+args.py+" process_model.py --tmodel "+args.tmodel+" --trained 1 --trun final --batch 32 --tdata siamese --lr 0.001 --optimizer Adam --loss categorical_crossentropy --epoch 10 --all 1 --nb "+str(i)+" --step 1")
 	calls.append("python3.6 analysis_fmaps.py --tmodel "+args.tmodel+" --texperiment reconst --tdata siamese --tmethod "+args.tmethod+" --ab b --nb "+str(i))
 	calls.append("python3.6 analysis_fmaps.py --tmodel "+args.tmodel+" --texperiment reconst --tdata siamese --tmethod "+args.tmethod+" --ab a --nb "+str(i))
 	for i in range(len(calls)):

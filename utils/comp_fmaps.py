@@ -296,7 +296,7 @@ def corresp_comparison(fmap, images_list, name="cats", fmap_name="1", list_img=[
 		descrs_list = [np.loadtxt(folder + name + "_descrs"+str(i)+".dat", delimiter=',') for i in range(n)]
 		frames = [np.loadtxt(folder + name + "_frames"+str(i)+".dat", delimiter=',') for i in range(n)]
 	print("* Loaded descriptors and keypoints")
-	## Correspondance points
+	## Correspondence points
 	frames_fmap, descrs_fmap = compute_SIFT(fmap)
 	N_frames1 = np.shape(descrs_fmap)[0]
 	matches=[np.zeros((N_frames1,2),dtype=np.int) for _ in range(n)]
@@ -316,19 +316,7 @@ def corresp_comparison(fmap, images_list, name="cats", fmap_name="1", list_img=[
 	matches = src_dst
 	m, contributions = results_correspondences(inliers, list_img, fname, matches)
 	if (m):
-		from skimage.feature import plot_matches
-		fig, ax = plt.subplots(nrows=1, ncols=1)
-		im1 = np.resize(images_list[m], (32, 32))
-		im2 = np.resize(fmap, (32, 32))
-		plt.figure()
-		plt.subplot("121")
-		plt.imshow(im1)
-		plt.subplot("122")
-		plt.imshow(im2)
-		#plt.show()
-		#plt.figure()
-		#plot_matches(ax, im2, im1, frames_fmap[:, :2], frames[m][:, :2], inliers[m])
-		#plt.show()
+		plm.plot_correspondences(fmap, images_list[m], frames_fmap, frames[m], inliers[m])
 	return contributions
 
 ###########################################
@@ -374,18 +362,22 @@ def repeatability_harris(fmap, images_list, name="cats", fmap_name="1", list_img
 	matches = [m[1:] for m in matches]
 	m, contributions = results_correspondences(inliers, list_img, fname, matches)
 	if (m):
-		pass
-		#plm.plot_correspondences(fmap, images_list[m], matches[m][0], matches[m][1], inliers[m])
+		plm.plot_correspondences(fmap, images_list[m], matches[m][0], matches[m][1], inliers[m])
 	return contributions
 
 ###################################################################
 
 ## Tests
 if (True):
-	list_img = glob.glob("../data/cats/*.jpg*")
+	list_img = glob.glob("../data/cats/*.jpg")
+	if (len(list_img) == 0):
+		list_img = glob.glob("./data/cats/*.jpg")
 	assert len(list_img) > 0, "Put some images in the ./data/cats folder"
 	images_list = [load_input(im_name) for im_name in list_img]
-	fmap = load_input("./test_images/cat7-1.jpg")
+	try:
+		fmap = load_input("./test_images/cat7-1.jpg")
+	except:
+		fmap = load_input("./utils/test_images/cat7-1.jpg")
 	if (False):
 		bow_comparison(fmap, images_list, list_img=list_img)
 	if (True):

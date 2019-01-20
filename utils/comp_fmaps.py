@@ -25,6 +25,9 @@ mpl.rcParams['figure.dpi'] = 120
 # ignore warnings
 warnings.filterwarnings('ignore')
 
+## Call from root folder
+folder = "./data/bow_sift_comp/"
+
 ###########
 ## TOOLS ##
 ###########
@@ -38,25 +41,20 @@ def load_input(im_name):
 	return im
 
 def plot_bovw(hst, fmap_name, title="mystery image"):
-	plt.hist(hst[:, 0], weights=hst[:, 1])
+	hst = hst.tolist()
+	if (len(hst) == 1):
+		hst = hst[0]
+	plt.hist(range(len(hst)), weights=hst)
 	plt.title("Bag-of-Visual-Words with " + title)
 	plt.xlabel("Word ID")
 	plt.ylabel("\'Count\'")
-	plt.savefig("bow_"+title+"_"+fmap_name+".png", bbox_inches="tight")
-	#plt.show()
 
 def plot_bovw_compare(query_hist, hst, score, fmap_name):
 	plt.figure(figsize=(10, 4.19))
 	plt.subplot('121')
-	plt.hist(query_hist[:, 0], weights=query_hist[:, 1])
-	plt.title("Bag-of-Visual-Words with input image/feat_map")
-	plt.xlabel("Word ID")
-	plt.ylabel("\'Count\'")
+	plot_bovw(query_hist.T, fmap_name, title="reconst. input")
 	plt.subplot('122')
-	plt.hist(hst[:, 0], weights=hst[:, 1])
-	plt.title("Bag-of-Visual-Words with closest image (score = "+ str(round(score, 2))+")")
-	plt.xlabel("Word ID")
-	plt.ylabel("\'Count\'")
+	plot_bovw(hst, fmap_name, title="closest image (score = "+ str(round(score, 2))+")")
 	plt.savefig("bow_input_closest_"+fmap_name+".png", bbox_inches="tight")
 	#plt.show()
 
@@ -214,7 +212,6 @@ def bow_comparison(fmap, images_list, name="cats", num_words=10, fmap_name="1", 
 	query_hist = g_h(descrs)
 	tdf_idf = compute_tdf_idf(np.concatenate((query_hist.T, histograms)), num_words)[:,0]
 	query_hist = np.matrix(preprocess_hist(query_hist, tdf_idf))
-	#plot_bovw(query_hist, fmap_name)
 	scores = np.zeros((1, len(descrs_list)))
 	scores[0,:] = [compute_score(query_hist, hist_i, num_words) for hist_i in histograms]
 	header = ""
@@ -303,7 +300,7 @@ def corresp_comparison(fmap, images_list, name="cats", fmap_name="1", list_img=[
 	# robustly estimate affine transform model with RANSAC
 	ransacs_idx = [ransac(frames_fmap,frames[i],matches[i])[1] for i in range(n)]
 	inliers = [matches[i][ransacs_idx[i],:] for i in range(n)]
-	frames = [frames[i][ransacs_idx[i], :] for i in range(n)]
+	#frames = [frames[i][ransacs_idx[i], :] for i in range(n)]
 	src_dst = [[frames_fmap[inliers[i][:, 0], :2], frames[i][inliers[i][:, 1], :2]] for i in range(n)]
 	fname = folder + name + "_" + fmap_name
 	matches = src_dst

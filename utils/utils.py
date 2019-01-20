@@ -19,7 +19,7 @@ def plot_grad_ascent(img):
 	plt.title("Reconstructed input with Gradient Ascent")
 	plt.axis('off')
 	plt.savefig("../Figures/grad_ascent_plot.png", bbox_inches="tight")
-	plt.show()
+	#plt.show()
 
 # Start from noisy random image and get ONE image which maximizes the average activation
 ## octave_n = 3

@@ -28,7 +28,7 @@ from sklearn.metrics import classification_report, confusion_matrix
 import random
 
 ## Training models
-# python2.7 process_model.py --tmodel vonc --tdata CIFAR-10 --trun training --trained 0 --epoch 250 --lr 0.01 --optimizer Adam --batch 64
+# python2.7 process_model.py --tmodel vonc --tdata CIFAR-10 --trun training --trained 0 --epoch 250 --lr 0.0001 --optimizer Adam --batch 64
 # python2.7 process_model.py --tmodel conv --tdata CIFAR-10 --trun training --trained 0 --epoch 10 --lr 0.0001 --optimizer Adam --batch 128
 # python2.7 process_model.py --tmodel conv2 --tdata CIFAR-10 --trun training --trained 0 --epoch 10 --lr 0.01 --optimizer SGD --batch 128
 ## Testing
@@ -239,7 +239,7 @@ def run_nn(datagen, X, Y_c, Y, batch_size, X_val=None, Y_val_c=None, training=Fa
 	Y_test = []
 	batch = 0
 	if (training):
-		hist = model.fit_generator(datagen.flow(X, Y_c, batch_size=batch_size), verbose=2,#verbose=1
+		hist = model.fit_generator(datagen.flow(X, Y_c, batch_size=batch_size), verbose=1,
 			epochs=epochs,shuffle=True,steps_per_epoch=np.shape(X)[0]//batch_size,
 			validation_data=datagen.flow(X_val, Y_val_c, batch_size=batch_size),
 			validation_steps=np.shape(X_val)[0]//batch_size,

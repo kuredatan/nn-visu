@@ -75,13 +75,14 @@ def find_correspondences(im1, im2, coords1, coords2):
 def plot_correspondences(im1, im2, frames1, frames2, matches):
 	# plot matches
 	plt.imshow(np.concatenate((im1,im2),axis=1))
-	for i in range(len(frames1)):
+	for i in range(np.shape(matches)[0]):
 		j=matches[i,1]
+		k=matches[i,0]
 		# plot dots at feature positions
-		plt.gca().scatter([frames1[i,0],im1.shape[1]+frames2[j,0]], [frames1[i,1],frames2[j,1]], s=5, c=[0,1,0])
+		plt.gca().scatter([frames1[k,0],im1.shape[1]+frames2[j,0]], [frames1[k,1],frames2[j,1]], s=5, c=[0,1,0])
 		# plot lines
-		plt.plot([frames1[i,0],im1.shape[1]+frames2[j,0]],[frames1[i,1],frames2[j,1]],linewidth=0.5)
+		plt.plot([frames1[k,0],im1.shape[1]+frames2[j,0]],[frames1[k,1],frames2[j,1]],linewidth=0.5)
 	plt.axis('off')
-	plt.set_title('RANSAC filtered correspondances with closest image')
+	plt.title('RANSAC filtered correspondances with closest image')
 	plt.savefig("ransac_correspondances.png", bbox_inches="tight")
 	plt.show()

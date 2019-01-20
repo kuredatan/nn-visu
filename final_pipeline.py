@@ -26,7 +26,7 @@ else:
 assert args.tmethod and args.ntry and args.tmodel, "Give values to input arguments"
 
 print("#"*60)
-if (arg.tmethod == "outputs"):
+if (args.tmethod == "outputs"):
 	if (not args.tmodel in ["conv", 'vonc', 'vgg16', 'conv2']):
 		print("Deconv model not implemented!")
 		raise ValueError

@@ -74,7 +74,7 @@ def find_correspondences(im1, im2, coords1, coords2):
 ## SOURCE: practicals #1 from Andrea Vedaldi and Andrew Zisserman, Gul Varol and Ignacio Rocco
 def plot_correspondences(im1, im2, frames1, frames2, matches, fmap_name):
 	# plot matches
-	im1 = im1[:, :, :, :3]
+	im1 = im1[:, :, :3]
 	plt.imshow(np.concatenate((im1,im2),axis=1))
 	for i in range(np.shape(matches)[0]):
 		k, j=matches[i,:]

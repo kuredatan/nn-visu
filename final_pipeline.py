@@ -38,8 +38,10 @@ if (args.tmethod == "outputs"):
 else:
 	for i in rang:
 		calls = []
-		ncalls = ["GENERATING INPUTS #"+str(i), "ANALYSIS BEFORE TRAINING", "ANALYSIS AFTER TRAINING"]
-		calls.append("python"+args.py+" process_model.py --tmodel "+args.tmodel+" --trained 1 --trun final --batch 32 --tdata siamese --lr 0.001 --optimizer Adam --loss categorical_crossentropy --epoch 10 --all 1 --nb "+str(i)+" --step 1")
+		ncalls = ["ANALYSIS BEFORE TRAINING", "ANALYSIS AFTER TRAINING"]
+		if (args.tmethod == "bow"):
+			ncalls = ["GENERATING INPUTS #"+str(i)] + ncalls
+			calls.append("python"+args.py+" process_model.py --tmodel "+args.tmodel+" --trained 1 --trun final --batch 32 --tdata siamese --lr 0.001 --optimizer Adam --loss categorical_crossentropy --epoch 10 --all 1 --nb "+str(i)+" --step 1")
 		calls.append("python3.6 analysis_fmaps.py --tmodel "+args.tmodel+" --texperiment reconst --tdata siamese --tmethod "+args.tmethod+" --ab b --nb "+str(i))
 		calls.append("python3.6 analysis_fmaps.py --tmodel "+args.tmodel+" --texperiment reconst --tdata siamese --tmethod "+args.tmethod+" --ab a --nb "+str(i))
 		for i in range(len(calls)):

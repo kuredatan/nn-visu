@@ -300,13 +300,12 @@ def corresp_comparison(fmap, images_list, name="cats", fmap_name="1", list_img=[
 	# robustly estimate affine transform model with RANSAC
 	ransacs_idx = [ransac(frames_fmap,frames[i],matches[i])[1] for i in range(n)]
 	inliers = [matches[i][ransacs_idx[i],:] for i in range(n)]
-	#frames = [frames[i][ransacs_idx[i], :] for i in range(n)]
 	src_dst = [[frames_fmap[inliers[i][:, 0], :2], frames[i][inliers[i][:, 1], :2]] for i in range(n)]
 	fname = folder + name + "_" + fmap_name
 	matches = src_dst
 	m, contributions = results_correspondences(inliers, list_img, fname, matches)
 	if (m):
-		plm.plot_correspondences(fmap, images_list[m], frames_fmap, frames[m], inliers[m])
+		plm.plot_correspondences(fmap, images_list[m], frames_fmap, frames[m], inliers[m], "sift_"+name+"_"+fmap_name)
 	return contributions
 
 ###########################################
@@ -343,7 +342,7 @@ def repeatability_harris(fmap, images_list, name="cats", fmap_name="1", list_img
 	else:
 		corners_list = [np.loadtxt(folder + name + "_corners"+str(i)+".dat", delimiter=',') for i in range(n)]
 	print("* Loaded corners")
-	## Correspondance of corners
+	## Correspondence of corners
 	corners_fmap = plm.extract_corners(fmap)
 	## Using RANSAC
 	matches = [plm.find_correspondences(fmap, images_list[i], corners_fmap, corners_list[i]) for i in range(n)]
@@ -352,13 +351,16 @@ def repeatability_harris(fmap, images_list, name="cats", fmap_name="1", list_img
 	matches = [m[1:] for m in matches]
 	m, contributions = results_correspondences(inliers, list_img, fname, matches)
 	if (m):
-		plm.plot_correspondences(fmap, images_list[m], matches[m][0], matches[m][1], inliers[m])
+		idx_arr = np.array(inliers[m], dtype=int)
+		idx = list(np.where(idx_arr == 1)[0])
+		inliers = np.array([[i, i] for i in idx])
+		plm.plot_correspondences(fmap, images_list[m], matches[m][0], matches[m][1], inliers, "harris_"+name+"_"+fmap_name)
 	return contributions
 
 ###################################################################
 
 ## Tests
-if (False):
+if (True):
 	list_img = glob.glob("../data/cats/*.jpg")
 	if (len(list_img) == 0):
 		list_img = glob.glob("./data/cats/*.jpg")
@@ -370,7 +372,7 @@ if (False):
 		fmap = load_input("./utils/test_images/cat7-1.jpg")
 	if (False):
 		bow_comparison(fmap, images_list, list_img=list_img)
-	if (True):
-		corresp_comparison(fmap, images_list, list_img=list_img)
 	if (False):
+		corresp_comparison(fmap, images_list, list_img=list_img)
+	if (True):
 		repeatability_harris(fmap, images_list, list_img=list_img)

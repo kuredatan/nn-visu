@@ -22,6 +22,7 @@ if (args.start):
 else:
 	rang = range(1, args.ntry+1)
 
+print("#"*15)
 for i in rang:
 	calls = []
 	ncalls = ["GENERATING INPUTS #"+str(i), "ANALYSIS BEFORE TRAINING", "ANALYSIS AFTER TRAINING"]

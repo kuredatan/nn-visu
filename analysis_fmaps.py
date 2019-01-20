@@ -31,7 +31,8 @@ parser.add_argument('--tmethod', type=str, default='bow', metavar='H',
 args = parser.parse_args()
 
 if (not args.tname and args.tmodel and args.texperiment):
-	name = "exp/exp_"+args.tmodel+"/"+args.texperiment+"/"
+	#name = "exp/exp_"+args.tmodel+"/"+args.texperiment+"/"
+	name = args.tmodel+"/"
 	if (args.texperiment=="outputs"):
 		name += args.tmodel+"feature_map_layer_"+args.tlayer+".png"
 	if (args.texperiment=="reconst"):
@@ -64,6 +65,8 @@ if (args.tmethod == "bow"):
 if (args.tmethod == "sift"):
 	contributions = corresp_comparison(fmap, images_list, name=data, fmap_name=caract, list_img=list_img)
 	sb.call("mv ./data/bow_sift_comp/corresp/corresp_"+data+"_"+caract+"_contributions.dat ./slides+report/contributions/", shell=True)
+	sb.call("mv ./ransac.png ./slides+report/figures_/"+caract+"_sift_ransac.png", shell=True)
 if (args.tmethod == "harris"):
 	contributions = repeatability_harris(fmap, images_list, name=data, fmap_name=caract, list_img=list_img)
 	sb.call("mv ./data/bow_sift_comp/harris/harris_"+data+"_"+caract+"_contributions.dat ./slides+report/contributions/", shell=True)
+	sb.call("mv ./ransac.png ./slides+report/figures_/"+caract+"_harris_ransac.png", shell=True)

@@ -99,6 +99,11 @@ if not os.path.exists("./Figures/"):
 if not os.path.exists("./Figures/"+args.tmodel+"/"):
         os.makedirs("./Figures/"+args.tmodel+"/")
 
+if not os.path.exists("./Figures/exp/exp_"+args.tmodel+"/reconst"):
+        os.makedirs("./Figures/exp/exp_"+args.tmodel+"/reconst")
+if not os.path.exists("./Figures/exp/exp_"+args.tmodel+"/outputs"):
+        os.makedirs("./Figures/exp/exp_"+args.tmodel+"/outputs")
+
 folder = "./data/bow_sift_comp/"
 folders = [folder+'bow/', folder+'corresp/', folder+'harris/']
 for f in folders:

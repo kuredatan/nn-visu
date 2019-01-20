@@ -4,8 +4,10 @@ import numpy as np
 import os
 import matplotlib.pyplot as plt
 
-if (not os.path.exists("mat_vonc.csv")):
-	with open("./vonc.txt") as f:
+## Call from root folder
+folder = "../traces/training/"
+if (not os.path.exists(folder + "mat_vonc.csv")):
+	with open(folder + "vonc.txt") as f:
 		lines = f.readlines()
 		nepochs=len(lines)
 		mat = np.zeros((nepochs, 4))
@@ -18,7 +20,7 @@ if (not os.path.exists("mat_vonc.csv")):
 			i += 1
 		np.savetxt(X=mat, fname="mat_vonc.csv", delimiter=",", header=header)
 else:
-	mat = np.loadtxt("mat_vonc.csv", delimiter=",")
+	mat = np.loadtxt(folder + "mat_vonc.csv", delimiter=",")
 	nepochs = np.shape(mat)[0]
 	epochs = range(1, nepochs+1)
 	acc = mat[:, 1]
@@ -35,6 +37,6 @@ else:
 	plt.plot(epochs, val_loss, 'r', label='Validation loss')
 	plt.title('Training and validation loss for model Vonc')
 	plt.legend()
-	plt.savefig("training_acc_vonc.png", bbox_inches="tight")
+	plt.savefig(folder + "training_acc_vonc.png", bbox_inches="tight")
 	plt.show()
 	

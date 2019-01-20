@@ -36,11 +36,11 @@ if (args.tmethod != "bow"):
 	stds = stds[highest].tolist()
 
 	plt.errorbar(range(len(means)), means, yerr=stds, fmt='o')
-	plt.title("Contributions (%matches) of each training\nimage to the reconstructed input ranked in increasing value order")
+	plt.title("Contributions (%matches - "+args.tmethod+") of each training\nimage to the reconstructed input ranked in increasing value order")
 	plt.xlabel("Number of corresponding training image")
 	plt.xticks(range(len(means)), highest)
 	plt.ylabel("Contributions (average % of matches\non reconstructed input + std)")
-	plt.savefig("./slides+report/contrib_"+args.tmodel+"_"+args.tdata+".png", bbox_inches="tight")
+	plt.savefig("./slides+report/contrib_"+args.tmodel+"_"+args.tmethod+"_"+args.tdata+".png", bbox_inches="tight")
 	#plt.show()
 else:
 	## Should be called from the root folder

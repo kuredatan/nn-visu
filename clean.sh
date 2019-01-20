@@ -3,5 +3,5 @@
 rm -rf *lextab.py
 rm -rf *yacctab.py
 rm -rf *.pyc
-rm -rf __pycache__
+rm -rf utils/__pycache__/
 exit

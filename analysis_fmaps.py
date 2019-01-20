@@ -54,11 +54,7 @@ assert len(list_img) > 0, "Put some images in the ./data/"+data+" folder"
 images_list = [load_input(im_name) for im_name in list_img]
 fmap = load_input("./Figures/"+name)
 
-if (args.nb):
-	caract = args.nb
-else:
-	caract = args.tlayer
-caract += "_"+args.ab
+caract = args.tmodel + "_" + (args.nb if (args.nb) else args.tlayer) + "_" + args.ab
 
 if (args.tmethod == "bow"):
 	bow_comparison(fmap, images_list, name=data, num_words=10, fmap_name=caract, list_img=list_img)
@@ -67,7 +63,7 @@ if (args.tmethod == "bow"):
 	sb.call("mv ./data/bow_sift_comp/bow/bow_"+data+"_"+caract+"_scores.dat ./slides+report/figures_/bow_analysis/", shell=True)
 if (args.tmethod == "sift"):
 	contributions = corresp_comparison(fmap, images_list, name=data, fmap_name=caract, list_img=list_img)
-	sb.call("mv ./data/bow_sift_comp/corresp/corresp_"+data+"_"+caract+"_contributions.dat ./slides+report/", shell=True)
+	sb.call("mv ./data/bow_sift_comp/corresp/corresp_"+data+"_"+caract+"_contributions.dat ./slides+report/contributions/", shell=True)
 if (args.tmethod == "harris"):
 	contributions = repeatability_harris(fmap, images_list, name=data, fmap_name=caract, list_img=list_img)
 	sb.call("mv ./data/bow_sift_comp/harris/harris_"+data+"_"+caract+"_contributions.dat ./slides+report/contributions/", shell=True)

@@ -18,20 +18,17 @@ parser.add_argument('--tdata', type=str, default='siamese', metavar='D',
 args = parser.parse_args()
 
 if (args.tmethod != "bow"):
-	k = 11
 	## Plot contributions of each training image to reconstructed input
 
 	## Load vectors associated with each reconstructed input
 	## Should be called from the root folder
-	contributions_ = glob.glob("./slides+report/contributions/harris_"+args.tdata+"_*_contributions.dat")
-	order = [int(c.split("_")[2]) for c in contributions_]
-	ra = sorted(range(len(contributions_)), key=lambda x : order[x])
-	contributions_ = [contributions_[i] for i in ra]
-	order = [order[i] for i in ra]
-	contributions = np.concatenate([np.matrix(np.loadtxt(c)) for c in contributions_], axis=1)
-	#print(contributions)
-	means = np.array(list(map(lambda x : round(np.mean(x), 2), [contributions[:,i] for i in range(len(ra))])))
-	stds = np.array(list(map(lambda x : round(np.std(x), 2), [contributions[:,i] for i in range(len(ra))])))
+	name = "corresp" if (args.tmethod == "sift") else args.tmethod
+	contributions_ = glob.glob("./slides+report/contributions/"+name+"_"+args.tdata+"_"+args.tmodel+"_*_a_contributions.dat")
+	contributions = np.concatenate([np.matrix(np.loadtxt(c)).T for c in contributions_], axis=1)
+	m, n = np.shape(contributions)
+	k = min(11, m)
+	means = np.array(list(map(lambda x : round(np.mean(x), 2), [contributions[i,:] for i in range(m)])))
+	stds = np.array(list(map(lambda x : round(np.std(x), 2), [contributions[i, :] for i in range(m)])))
 	## Plot the k highest contributions
 	highest = means.argsort()[-k:]
 	print(highest, "Images which have the " + str(k) + " highest contributions")
@@ -46,7 +43,7 @@ if (args.tmethod != "bow"):
 	plt.show()
 else:
 	## Should be called from the root folder
-	scores_ = glob.glob("./slides+report/figures_/bow_analysis/bow_"+args.tdata+"_*_scores.dat")
+	scores_ = glob.glob("./slides+report/figures_/bow_analysis/bow_"+args.tdata+"_"+args.tmodel+"_*_scores.dat")
 	before_train = list(filter(lambda x : "b" in x.split("_"), scores_))
 	after_train = list(filter(lambda x : "a" in x.split("_"), scores_))
 	bscores = np.array([np.max(np.loadtxt(s)).tolist() for s in before_train])

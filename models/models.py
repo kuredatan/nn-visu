@@ -44,7 +44,7 @@ def ResNet_50(pretrained=True, weights_path=None, noutputs=num_classes, deconv=F
 	if (not include_softmax):
 		model.layers.pop()
 		o = Dense(noutputs, name="fc1000")(model.layers[-1].output)
-		model = Model(input=model.input, output=[o])
+		model = Model(inputs=model.input, outputs=[o])
 
 	return model
 
@@ -173,7 +173,7 @@ def VGG_16(pretrained=True, weights_path=None, noutputs=num_classes, deconv=Fals
 	if (not include_softmax):
 		model.layers.pop()
 		o = Dense(noutputs, name="fc1000")(model.layers[-1].output)
-		model = Model(input=model.input, output=[o])
+		model = Model(inputs=model.input, outputs=[o])
 
 	return model
 
@@ -234,7 +234,7 @@ def Conv2(pretrained=True, weights_path=None, noutputs=num_classes, deconv=False
 	if (not include_softmax):
 		model.layers.pop()
 		o = Dense(noutputs, name="fc1000")(model.layers[-1].output)
-		model = Model(input=model.input, output=[o])
+		model = Model(inputs=model.input, outputs=[o])
 	return model
 
 ## CREDIT: https://blog.plon.io/tutorials/cifar-10-classification-using-keras-tutorial/
@@ -310,7 +310,7 @@ def Conv(pretrained=True, weights_path=None, noutputs=num_classes, deconv=False,
 	if (not include_softmax):
 		model.layers.pop()
 		o = Dense(noutputs, name="fc1000")(model.layers[-1].output)
-		model = Model(input=model.input, output=[o])
+		model = Model(inputs=model.input, outputs=[o])
 
 	return model
 
@@ -378,6 +378,6 @@ def Vonc(pretrained=True, weights_path=None, noutputs=num_classes, deconv=False,
 	if (not include_softmax):
 		model.layers.pop()
 		o = Dense(noutputs, name="fc1000")(model.layers[-1].output)
-		model = Model(input=model.input, output=[o])
+		model = Model(inputs=model.input, outputs=[o])
 
 	return model

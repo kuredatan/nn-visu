@@ -14,7 +14,6 @@ from random import sample
 from copy import deepcopy
 from print_norm_utils import print_images, plot_kernels, normalize_input, query_yes_no, load_input, resize
 import keras.backend as K
-import cPickle as pickle
 import models
 import deconv_models
 import argparse
@@ -86,14 +85,6 @@ parser.add_argument('--nb', type=str, default="", metavar='B',
 parser.add_argument('--all', type=int, default=0, metavar='A',
                     help='Automatically saving all figures and code ["0" or "1"].')
 args = parser.parse_args()
-
-folder = "./data/figures/"
-if not os.path.exists(folder):
-	os.mkdir(folder)
-
-folder += args.tdata + "/"
-if not os.path.exists(folder):
-	os.mkdir(folder)
 
 folder = "./traces/"
 if not os.path.exists(folder):
@@ -516,7 +507,6 @@ if (args.trun == "final"):
 	n = 1 # < 10 Nb of features maps to show
 	m = 3
 	p = 0.30 ## proportion of validation set in training set
-	im = np.zeros((1, sz, sz, 3))
 	todo = {"max_act_filter_btrain": False,
 		"max_act_class_btrain": True,
 		"train": 1,
@@ -530,34 +520,20 @@ if (args.trun == "final"):
 		## A set of feature channels to visualize
 		rand_range = random.sample(range(m), n)
 		layers = list(filter(lambda x : x[:6] != "interp" and x[:3] != "pos" and x[:5] != "input" and x[:10] != "activation", map(lambda x : x.name, deconv_model.layers)))
-		filters = [[grad_ascent(im, model, filter_index, layer_name=layer, batch_size=args.batch, step=args.step) for filter_index in rand_range] for layer in layers]
-		#layer_bfc = deconv_model.layers[2].name
-		#model_ = d_models[args.tmodel](pretrained=args.trained>0, sz=sz, deconv=True, layer=layer_bfc)
-		#deconv_filters = [[deconv_model.predict(model_.predict([i])) for i in f] for f in filters]
+		filters = [[grad_ascent(sz, model, filter_index, layer_name=layer, batch_size=args.batch, step=args.step) for filter_index in rand_range] for layer in layers]
 		hf = ''
 		for f in rand_range:
 			hf += str(f)+','
 		for i in range(len(filters)):
-			save_inputs(filters[i], layer="deconv_b_training_layer="+layers[i]+"_filters="+hf, show=show)
-		#for i in range(len(filters)):
-		#	save_inputs(deconv_filters[i], layer="deconv_b_training_layer="+layers[i]+"_deconv_filters="+hf, show=False)
+			save_inputs(filters[i], layer="b_training_layer="+layers[i]+"_filters="+hf, show=show)
 	###### Get the reconstructed inputs yielding highest mean activation in 
 	###### class_ output (wrt ImageNet labels) of softmax layer
 	if (todo["max_act_class_btrain"]):
-		## Full model and DeconvNet
-		deconv_model = d_dmodels[args.tmodel](pretrained=args.trained>0, sz=sz)
+		## Full model
 		model = d_models[args.tmodel](pretrained=args.trained>0, sz=sz, deconv=True, include_softmax = False)
-		imgs = [grad_ascent(im, model, class_, batch_size=args.batch, step=args.step) for i in range(ntries)]
-		## Deconv them
-		## Select layer before the FC part
-		#layer_bfc = deconv_model.layers[2].name
-		#model = d_models[args.tmodel](pretrained=args.trained>0, sz=sz, deconv=True, layer=layer_bfc)
-		#deconv_imgs = [deconv_model.predict(model.predict([i])) for i in imgs]
+		imgs = [grad_ascent(sz, model, class_, batch_size=args.batch, step=args.step) for i in range(ntries)]
 		save_inputs(imgs, layer="b_training_class="+str(class_), class_=imagenet1000[class_], show=show)
-		#save_inputs(deconv_imgs, layer="b_training_deconv_class="+str(class_), class_=imagenet1000[class_], show=False)
 	## STEP 3: Training with the considered class
-	###### 
-	###### 
 	if (todo["train"]):
 		Y_test_c = to_categorical(Y_test, num_classes)
 		## Cut X_test into training and validation datasets
@@ -592,27 +568,14 @@ if (args.trun == "final"):
 		print("Saved weights at " + wname)
 	## STEP 4
 	if (todo["max_act_filter_atrain"]):
-		model = d_models[args.tmodel](pretrained=args.trained>0, weights_path=wname, deconv=False, sz=sz, layer=args.tlayer)
 		###### Get the reconstructed inputs yielding highest mean activation
-		filters = [[grad_ascent(im, model, filter_index, layer_name=layer, batch_size=args.batch, step=args.step) for filter_index in rand_range] for layer in layers]
-		#layer_bfc = deconv_model.layers[2].name
-		#model_ = d_models[args.tmodel](pretrained=args.trained>0, sz=sz, deconv=True, layer=layer_bfc)
-		#deconv_filters = [[deconv_model.predict(model_.predict([i])) for i in f] for f in filters]
+		filters = [[grad_ascent(sz, model, filter_index, layer_name=layer, batch_size=args.batch, step=args.step) for filter_index in rand_range] for layer in layers]
 		for i in range(len(filters)):
-			save_inputs(filters[i], layer="deconv_a_training_layer="+layers[i]+"_filters="+hf, show=show)
-		#for i in range(len(filters)):
-		#	save_inputs(deconv_filters[i], layer="deconv_a_training_layer="+layers[i]+"_deconv_filters="+hf, show=False)
+			save_inputs(filters[i], layer="a_training_layer="+layers[i]+"_filters="+hf, show=show)
 	###### Get the reconstructed inputs yielding highest mean activation in 
 	###### class_ output (wrt ImageNet labels) of softmax layer
 	if (todo["max_act_class_atrain"]):
-		## Full model and DeconvNet
-		deconv_model = d_dmodels[args.tmodel](pretrained=args.trained>0, sz=sz)
+		## Full model
 		model = d_models[args.tmodel](pretrained=args.trained>0, sz=sz, weights_path=wname, deconv=True, include_softmax = False)
-		imgs = [grad_ascent(im, model, class_, batch_size=args.batch, step=args.step) for i in range(ntries)]
-		## Deconv them
-		## Select layer before the FC part
-		#layer_bfc = deconv_model.layers[2].name
-		#model = d_models[args.tmodel](pretrained=args.trained>0, weights_path=wname, sz=sz, deconv=True, layer=layer_bfc)
-		#deconv_imgs = [deconv_model.predict(model.predict([i])) for i in imgs]
+		imgs = [grad_ascent(sz, model, class_, batch_size=args.batch, step=args.step) for i in range(ntries)]
 		save_inputs(imgs, layer="a_training_class="+str(class_), class_=imagenet1000[class_], show=show)
-		#save_inputs(deconv_imgs, layer="a_training_deconv_class="+str(class_), class_=imagenet1000[class_], show=False)

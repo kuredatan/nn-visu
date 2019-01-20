@@ -9,12 +9,18 @@ parser.add_argument('--tmodel', type=str, default='conv', metavar='M',
                     help='CNN to visualize/analyze ["conv", "vonc", "conv2", "vgg"].')
 parser.add_argument('--ntry', type=int, default=10, metavar='N',
                     help='Number of experiments for analyzing of training process (see report).')
+parser.add_argument('--start', type=int, default=0, metavar='N',
+                    help='Start index of experiments for analyzing of training process (see report). (optional)')
 parser.add_argument('--tmethod', type=str, default='bow', metavar='H',
                     help='Method: [\'bow\', \'sift\', \'harris\'].')
 args = parser.parse_args()
 
-ntry = args.ntry
-for i in range(1, ntry+1):
+if (args.start):
+	rang = range(args.start, args.ntry+args.start)
+else:
+	rang = range(1, args.ntry+1)
+
+for i in rang:
 	calls = []
 	ncalls = ["GENERATING INPUTS #"+str(i), "ANALYSIS BEFORE TRAINING", "ANALYSIS AFTER TRAINING"]
 	calls.append("python2.7 process_model.py --tmodel "+args.tmodel+" --trained 1 --trun final --batch 32 --tdata siamese --lr 0.001 --optimizer Adam --loss categorical_crossentropy --epoch 10 --all 1 --nb "+str(i)+" --step 1")
@@ -33,6 +39,8 @@ m = len(msg)+6
 print("#"*m)
 print("## "+msg+" ##")
 print("#"*m)
-call = "python ./utils/plot_contrib.py --tmethod "+args.tmethod+" --tdata "+args.tdata+" --tmodel "+args.tmodel
+call = "python ./utils/plot_contrib.py --tmethod "+args.tmethod+" --tdata siamese --tmodel "+args.tmodel
 print("CALL: \"" + call + "\"")
 sb.call(call, shell=True)
+import gc
+gc.collect()

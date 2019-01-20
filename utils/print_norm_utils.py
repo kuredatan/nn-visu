@@ -91,6 +91,7 @@ def query_yes_no(question, all_=False, default="yes"):
     """
     valid = {"yes": True, "y": True, "ye": True,
              "no": False, "n": False}
+    return valid["yes"]
     if (all_):
         return valid["yes"]
     if default is None:

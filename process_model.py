@@ -99,10 +99,10 @@ if not os.path.exists("./Figures/"):
 if not os.path.exists("./Figures/"+args.tmodel+"/"):
         os.makedirs("./Figures/"+args.tmodel+"/")
 
-if not os.path.exists("./Figures/exp/exp_"+args.tmodel+"/reconst"):
-        os.makedirs("./Figures/exp/exp_"+args.tmodel+"/reconst")
-if not os.path.exists("./Figures/exp/exp_"+args.tmodel+"/outputs"):
-        os.makedirs("./Figures/exp/exp_"+args.tmodel+"/outputs")
+#if not os.path.exists("./Figures/exp/exp_"+args.tmodel+"/reconst"):
+#        os.makedirs("./Figures/exp/exp_"+args.tmodel+"/reconst")
+#if not os.path.exists("./Figures/exp/exp_"+args.tmodel+"/outputs"):
+#        os.makedirs("./Figures/exp/exp_"+args.tmodel+"/outputs")
 
 folder = "./slides+report/"
 if not os.path.exists(folder):

@@ -37,7 +37,7 @@ if (not args.tname and args.tmodel and args.texperiment):
 		name += args.tmodel+"feature_map_layer_"+args.tlayer+".png"
 	if (args.texperiment=="reconst"):
 		class_ = str(284) ## Same as in process_model.py in the final pipeline
-		name += args.tmodel+"_feature_map_layer"+args.ab+"_training_deconv_class="+class_+"_"+args.nb+".png"
+		name += args.tmodel+"_feature_map_layer"+args.ab+"_training_class="+class_+"_"+args.nb+".png"
 else:
 	assert args.tname != None, "Please specify the name of the input image"
 	name = args.tname

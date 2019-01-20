@@ -360,7 +360,7 @@ def repeatability_harris(fmap, images_list, name="cats", fmap_name="1", list_img
 ###################################################################
 
 ## Tests
-if (True):
+if (False):
 	list_img = glob.glob("../data/cats/*.jpg")
 	if (len(list_img) == 0):
 		list_img = glob.glob("./data/cats/*.jpg")
@@ -374,5 +374,5 @@ if (True):
 		bow_comparison(fmap, images_list, list_img=list_img)
 	if (False):
 		corresp_comparison(fmap, images_list, list_img=list_img)
-	if (True):
+	if (False):
 		repeatability_harris(fmap, images_list, list_img=list_img)

@@ -19,13 +19,37 @@ num_classes = 1000
 msg = "* Loaded weights! (CNN)"
 
 from keras.applications.vgg16 import VGG16
+from keras.applications.resnet50 import ResNet50
 
-## Get weights for VGG16
+## Get weights trained on ImageNet for VGG16
 #model = VGG16(include_top=True, weights='imagenet', classes=num_classes)
 #model.save_weights('vgg16_weights.h5')
 
+## Get weights trained on ImageNet for ResNet50
+#model = ResNet50(include_top=True, weights='imagenet', input_tensor=None, input_shape=None, pooling=None, classes=1000)
+#model.save_weights('resnet50_weights.h5')
+
+## /!\ No DeconvNet implemented for ResNet_50! 
+
+def ResNet_50(pretrained=True, weights_path=None, noutputs=num_classes, deconv=False, sz=224, layer="", include_softmax = True):
+	if (pretrained and not weights_path):
+		weights_path = './data/weights/resnet50_weights.h5'
+
+	model = ResNet50(include_top=True, weights=None, classes=num_classes)
+
+	if weights_path:
+		model.load_weights(weights_path, by_name = True)
+		print(msg)
+
+	if (not include_softmax):
+		model.layers.pop()
+		o = Dense(noutputs, name="fc1000")(model.layers[-1].output)
+		model = Model(input=model.input, output=[o])
+
+	return model
+
 ## CREDIT: https://gist.github.com/baraldilorenzo/07d7802847aaad0a35d3
-def VGG_16(pretrained=True, weights_path=None, noutputs=num_classes, deconv=False, sz=224, layer=""):
+def VGG_16(pretrained=True, weights_path=None, noutputs=num_classes, deconv=False, sz=224, layer="", include_softmax = True):
 	if (pretrained and not weights_path):
 		weights_path = './data/weights/vgg16_weights.h5'
 
@@ -118,7 +142,7 @@ def VGG_16(pretrained=True, weights_path=None, noutputs=num_classes, deconv=Fals
 		x = Dense(4096, name="fc2")(x)
 		x = Activation('relu')(x)
 		x = Dropout(0.5)(x)
-		x = Dense(noutputs, activation='softmax', name="predictions")(x)
+		x = Dense(noutputs, name="fc3", activation="softmax")(x)
 
 	if (deconv):
 		outputs = [x]
@@ -146,10 +170,15 @@ def VGG_16(pretrained=True, weights_path=None, noutputs=num_classes, deconv=Fals
 		model.load_weights(weights_path, by_name = True)
 		print(msg)
 
+	if (not include_softmax):
+		model.layers.pop()
+		o = Dense(noutputs, name="fc1000")(model.layers[-1].output)
+		model = Model(input=model.input, output=[o])
+
 	return model
 
 ## CREDIT: https://blog.plon.io/tutorials/cifar-10-classification-using-keras-tutorial/
-def Conv2(pretrained=True, weights_path=None, noutputs=num_classes, deconv=False, sz=32, layer=""):
+def Conv2(pretrained=True, weights_path=None, noutputs=num_classes, deconv=False, sz=32, layer="", include_softmax=True):
 	if (pretrained and not weights_path):
 		weights_path = './data/weights/conv2_weights.h5'
 
@@ -183,7 +212,7 @@ def Conv2(pretrained=True, weights_path=None, noutputs=num_classes, deconv=False
 		x = Dense(512, name="dense1")(x)
 		x = Activation('relu')(x)
 		x = Dropout(0.5)(x)
-		x = Dense(noutputs, activation="softmax", name="dense2")(x)
+		x = Dense(noutputs, name="dense2", activation="softmax")(x)
 
 	if (deconv):
 		outputs = [x]
@@ -202,10 +231,14 @@ def Conv2(pretrained=True, weights_path=None, noutputs=num_classes, deconv=False
 		model.load_weights(weights_path, by_name=True)
 		print(msg)
 
+	if (not include_softmax):
+		model.layers.pop()
+		o = Dense(noutputs, name="fc1000")(model.layers[-1].output)
+		model = Model(input=model.input, output=[o])
 	return model
 
 ## CREDIT: https://blog.plon.io/tutorials/cifar-10-classification-using-keras-tutorial/
-def Conv(pretrained=True, weights_path=None, noutputs=num_classes, deconv=False, sz=32, layer=""):
+def Conv(pretrained=True, weights_path=None, noutputs=num_classes, deconv=False, sz=32, layer="", include_softmax=True):
 	if (pretrained and not weights_path):
 		weights_path = './data/weights/conv_weights.h5'
 
@@ -252,7 +285,7 @@ def Conv(pretrained=True, weights_path=None, noutputs=num_classes, deconv=False,
 		x = Dense(1024, kernel_constraint=maxnorm(3), name="dense1")(x)
 		x = Activation('relu')(x)
 		x = Dropout(0.2)(x)
-		x = Dense(noutputs, activation='softmax', name="dense2")(x)
+		x = Dense(noutputs, name="dense2", activation="softmax")(x)
 
 	if (deconv):
 		outputs = [x]
@@ -274,11 +307,16 @@ def Conv(pretrained=True, weights_path=None, noutputs=num_classes, deconv=False,
 		model.load_weights(weights_path, by_name=True)
 		print(msg)
 
+	if (not include_softmax):
+		model.layers.pop()
+		o = Dense(noutputs, name="fc1000")(model.layers[-1].output)
+		model = Model(input=model.input, output=[o])
+
 	return model
 
 ## CREDIT: Keras training on CIFAR-10 
 ## https://gist.github.com/giuseppebonaccorso/e77e505fc7b61983f7b42dc1250f31c8
-def Vonc(pretrained=True, weights_path=None, noutputs=num_classes, deconv=False, sz=32, layer=""):
+def Vonc(pretrained=True, weights_path=None, noutputs=num_classes, deconv=False, sz=32, layer="", include_softmax=True):
 	if (pretrained and not weights_path):
 		weights_path = './data/weights/vonc_weights.h5'
 
@@ -315,7 +353,7 @@ def Vonc(pretrained=True, weights_path=None, noutputs=num_classes, deconv=False,
 		x = Dense(1024, name="dense1")(x)
 		x = Activation('relu')(x)
 		x = Dropout(0.25)(x)
-		x = Dense(noutputs, activation='softmax', name="dense2")(x)
+		x = Dense(noutputs, name="dense2", activation="softmax")(x)
 
 	if (deconv):
 		outputs = [x]
@@ -336,5 +374,10 @@ def Vonc(pretrained=True, weights_path=None, noutputs=num_classes, deconv=False,
 	if weights_path:
 		model.load_weights(weights_path, by_name=True)
 		print(msg)
+
+	if (not include_softmax):
+		model.layers.pop()
+		o = Dense(noutputs, name="fc1000")(model.layers[-1].output)
+		model = Model(input=model.input, output=[o])
 
 	return model

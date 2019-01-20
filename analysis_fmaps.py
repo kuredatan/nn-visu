@@ -4,6 +4,7 @@ sys.path += ['layers', 'models', 'utils']
 import argparse
 import subprocess as sb
 from comp_fmaps import bow_comparison, corresp_comparison, repeatability_harris, load_input
+import glob
 
 ## python3.6 analysis_fmaps.py --tname conv/convfeature_map_layer_conv1.png --tdata CATS --tmethod bow
 
@@ -48,6 +49,7 @@ if (args.tdata == "siamese"):
 	data = "siamese"
 	title = "siamese"
 list_img = ["./data/"+data+"/"+title+str(i)+".jpg" for i in range(1, 12)]
+list_img = glob.glob("./data/"+data+"/"+title+"*.jpg")
 assert len(list_img) > 0, "Put some images in the ./data/"+data+" folder"
 images_list = [load_input(im_name) for im_name in list_img]
 fmap = load_input("./Figures/"+name)
@@ -64,10 +66,14 @@ if (args.tmethod == "sift"):
 	if (args.nb):
 		sb.call("mv ./data/bow_sift_comp/corresp/corresp_"+data+"_"+args.nb+"_contributions.dat ./slides+report/", shell=True)
 	else:
-		sb.call("mv ./data/bow_sift_comp/corresp/corresp_"+data+"_1_contributions.dat ./slides+report/", shell=True)	
+		sb.call("mv ./data/bow_sift_comp/corresp/corresp_"+data+"_1_contributions.dat ./slides+report/", shell=True)
+	## Plots
+	sb.call("python ./utils/plot_contrib.py", shell=True)
 if (args.tmethod == "harris"):
 	contributions = repeatability_harris(fmap, images_list, name=data, fmap_name=str(ntry), list_img=list_img)
 	if (args.nb):
 		sb.call("mv ./data/bow_sift_comp/harris/harris_"+data+"_1_contributions.dat ./slides+report/contributions/harris_"+data+"_"+args.nb+"_contributions.dat", shell=True)
 	else:
 		sb.call("mv ./data/bow_sift_comp/harris/harris_"+data+"_1_contributions.dat ./slides+report/contributions/harris_"+data+"_"+args.tlayer+"_contributions.dat", shell=True)
+	## Plots
+	sb.call("python ./utils/plot_contrib.py", shell=True)

@@ -13,7 +13,6 @@ from keras.utils import to_categorical
 from random import sample
 from copy import deepcopy
 from print_norm_utils import print_images, plot_kernels, normalize_input, query_yes_no, load_input, resize
-from keras.applications.vgg16 import preprocess_input
 import keras.backend as K
 import cPickle as pickle
 import models
@@ -53,7 +52,7 @@ np.random.seed(1000)
 
 parser = argparse.ArgumentParser(description='Simple NN models')
 parser.add_argument('--tmodel', type=str, default='conv', metavar='M',
-                    help='In ["conv2", "conv", "vgg"].')
+                    help='In ["conv2", "conv", "vonc", "vgg"] ONLY.')
 parser.add_argument('--trun', type=str, default='training', metavar='R',
                     help='In ["training", "testing", "deconv"].')
 parser.add_argument('--tdata', type=str, default='CIFAR-10', metavar='D',
@@ -130,14 +129,27 @@ def print_image(x):
 	plt.show()
 	raise ValueError
 
-if (args.tmodel == "vgg"):
+pred_argmax = lambda y : [imagenet1000[np.argmax(y[i, :])] for i in range(len(y))]
+
+import unicodedata
+
+if (args.tmodel == "vgg" or args.tmodel == "resnet50"):
 	sz = 224
+	if (args.tmodel == "vgg"):
+		from keras.applications.vgg16 import preprocess_input
+		from keras.applications.vgg16 import decode_predictions
+	if (args.tmodel == "resnet50"):
+		from keras.applications.resnet50 import preprocess_input
+		from keras.applications.resnet50 import decode_predictions
+	## Gets the highest probability class label
+	decode_predict = lambda y : [unicodedata.normalize('NFKD', decode_predictions(np.resize(yy, (1, num_classes)))[0][0][1]).encode('ascii','ignore') for yy in y]
 	preprocess_image = lambda x : resize(x, (np.shape(x)[0], sz, sz, 3)) if (len(np.shape(x)) == 4) else resize(x, (1, sz, sz, 3))
 	## preprocess_input(resize(x, (np.shape(x)[0], sz, sz, 3)))
 else:
 	sz = 32
 	training_means = [np.mean(X_train[:,:,i].astype('float32')) for i in range(3)]
 	preprocess_image = lambda x : normalize_input(x, sz, training_means)
+	decode_predict = pred_argmax
 
 ## CREDIT: Keras training on CIFAR-10 
 ## https://gist.github.com/giuseppebonaccorso/e77e505fc7b61983f7b42dc1250f31c8
@@ -190,8 +202,8 @@ Y_train_c = Y_train_c[in_train, :]
 ##################################################################################
 ############# MODELS
 
-d_models = {"conv": models.Conv, "vgg": models.VGG_16, "conv2": models.Conv2, "vonc": models.Vonc}
-d_dmodels = {"conv": deconv_models.Conv, "vgg": deconv_models.VGG_16, "conv2": deconv_models.Conv2, "vonc": deconv_models.Vonc}
+d_models = {"conv": models.Conv, "vgg": models.VGG_16, "conv2": models.Conv2, "vonc": models.Vonc, "resnet50": models.ResNet_50}
+d_dmodels = {"conv": deconv_models.Conv, "vgg": deconv_models.VGG_16, "conv2": deconv_models.Conv2, "vonc": deconv_models.Vonc, "resnet50": deconv_models.ResNet_50}
 
 ## NN model
 model = d_models[args.tmodel](pretrained=args.trained>0, deconv=args.trun in ["deconv", "final"], sz=sz, layer=args.tlayer)
@@ -206,7 +218,6 @@ if (args.verbose == 1):
 	print("______________________\nSummary:")
 	print(model.summary())
 
-layers = list(map(lambda x : x.name, model.layers))
 #layer = layers[1]
 #print("Plotting kernel from layer \'" + layer + "\'")
 #plot_kernels(model, layer)
@@ -231,7 +242,7 @@ def run_nn(datagen, X, Y_c, Y, batch_size, X_val=None, Y_val_c=None, training=Fa
 	Y_test = []
 	batch = 0
 	if (training):
-		hist = model.fit_generator(datagen.flow(X, Y_c, batch_size=batch_size), verbose=1,
+		hist = model.fit_generator(datagen.flow(X, Y_c, batch_size=batch_size), verbose=2,#verbose=1
 			epochs=epochs,shuffle=True,steps_per_epoch=np.shape(X)[0]//batch_size,
 			validation_data=datagen.flow(X_val, Y_val_c, batch_size=batch_size),
 			validation_steps=np.shape(X_val)[0]//batch_size,
@@ -241,12 +252,17 @@ def run_nn(datagen, X, Y_c, Y, batch_size, X_val=None, Y_val_c=None, training=Fa
 			if (args.verbose):
 				print("Batch #" + str(batch+1) + "/" + str(n/batch_size+1))
 			predictions = model.predict(x_batch, batch_size, verbose=1)
-			pred_ = [np.argmax(predictions[i, :]) for i in range(len(predictions))]
+			mn = len(predictions)
+			pred_ = decode_predict(predictions)
 			labels += pred_
-			Y_batch = [np.argmax(y_batch[i, :]) for i in range(len(predictions))]
+			Y_batch = pred_argmax(y_batch)
 			Y_test += Y_batch
-			acc = np.array(pred_)==np.array(Y_batch)
-			acc = np.sum(acc)/float(len(predictions))
+			#print("pred= ", pred_, type(pred_[0]))
+			#print("Y_batch= ", Y_batch, type(Y_batch[0]))
+			acc = np.array([int(pred_[i] == Y_batch[i]) for i in range(mn)])#np.array(pred_)==np.array(Y_batch)
+			acc = np.sum(acc)/float(mn)
+			#print(acc)
+			#raise ValueError
 			if (args.verbose):
 				print(str(batch_size*(batch+1)) + "/" + str(n) + ": acc = " + str(acc))
 			if batch >= n / batch_size:
@@ -257,27 +273,32 @@ def run_nn(datagen, X, Y_c, Y, batch_size, X_val=None, Y_val_c=None, training=Fa
 		target_names = list(set([imagenet1000[l] for l in dict_labels_cats.values()]))
 	else:
 		target_names = imagenet1000.keys()
-	print('\n* * * Confusion Matrix')
-	target = list(set(Y_test+labels))
-	conf_mat = confusion_matrix(Y_test, labels, labels=target)
-	print(conf_matrix)
-	print('\n* * * Classification Report')
-	target_names = list(map(lambda x : imagenet1000[x], list(set(Y_test))))
-	class_report = classification_report(Y_test, labels, target_names=target_names)
-	print(class_report)
+	print_conf_report = False
+	if (print_conf_report):
+		print('\n* * * Confusion Matrix')
+		target = list(set(Y_test+labels))
+		conf_mat = confusion_matrix(Y_test, labels, labels=target)
+		print(conf_mat)
+		print('\n* * * Classification Report')
+		target_names = list(map(lambda x : imagenet1000[x], list(set(Y_test))))
+		if (len(target_names) == 1):
+			target_names += ["not "+target_names[0]]
+		class_report = classification_report(Y_test, labels, target_names=target_names)
+		print(class_report)
 	names = ["model", "epochs", "batch", "optimizer", "lr"]
 	feat = list(map(str, [args.tmodel, args.epoch, args.batch, args.optimizer, args.step]))
 	caract = names[0]+"="+feat[0]
 	for i in range(1, len(names)):
 		caract += "_" + names[i]+"="+feat[i]
-	if (query_yes_no("Save confusion matrix/report?", all_=args.all, default="yes")):
-		header = ""
-		for t in target:
-			header += t+","
-		np.savetxt("./testing/conf_matrix_"+caract+".csv", conf_matrix, header=header)
-		## https://stackoverflow.com/questions/19201290/how-to-save-a-dictionary-to-a-file
-		## read_dictionary = np.load('my_file.npy').item()
-		np.save("./testing/report_"+caract+".npy", class_report) 
+	if (print_conf_report):
+		if (query_yes_no("Save confusion matrix/report?", all_=args.all, default="yes")):
+			header = ""
+			for t in target:
+				header += t+","
+			np.savetxt("./testing/conf_matrix_"+caract+".csv", conf_mat, header=header)
+			## https://stackoverflow.com/questions/19201290/how-to-save-a-dictionary-to-a-file
+			## read_dictionary = np.load('my_file.npy').item()
+			np.save("./testing/report_"+caract+".npy", class_report) 
 	if (not training):
 		if (args.verbose == 1):
 			acc = np.sum(np.array(labels) == np.array(Y_test))/float(len(labels))
@@ -293,6 +314,8 @@ def run_nn(datagen, X, Y_c, Y, batch_size, X_val=None, Y_val_c=None, training=Fa
 			print('')
 			print('* ACCURACY %.2f' % acc)
 		return labels
+	if (query_yes_no("Save weights?", default="yes", all_=args.all)):
+		model.save_weights('./data/weights/'+args.tmodel+'_weights.h5')
 	if (args.verbose == 1):
 		acc = hist.history["acc"][-1]
 		loss = hist.history["loss"][-1]
@@ -326,8 +349,6 @@ def run_nn(datagen, X, Y_c, Y, batch_size, X_val=None, Y_val_c=None, training=Fa
 		plt.show()
 	if (query_yes_no("Save loss/accuracy curves?", default="yes", all_=args.all)):
 		fig.savefig(args.tmodel+"_"+args.tdata+"_loss_acc_curves.png", bbox_inches="tight")
-	if (query_yes_no("Save weights?", default="yes", all_=args.all)):
-		model.save_weights('./data/weights/'+args.tmodel+'_weights.h5')
 	return hist
 
 def process_fmap(out, im, layer="", sz=sz, normalize=False):
@@ -486,52 +507,55 @@ if (args.trun == "deconv"):
 	save_inputs(deconv_imgs, layer="deconv_grad_ascent_im="+str(im_nb)+"_class="+str(class_), class_=imagenet1000[class_])
 ## Final pipeline: Call
 ## python2.7 process_model.py --tmodel conv --trained 1 --trun final --batch 32 --tdata siamese --lr 0.001 --optimizer Adam --loss categorical_crossentropy --epoch 10
+## python2.7 process_model.py --tmodel vgg --trained 1 --trun final --batch 32 --tdata siamese --lr 0.001 --optimizer Adam --loss categorical_crossentropy --epoch 10 --all 1 --nb 302 --step 1 --tlayer block3_conv3
 if (args.trun == "final"):
 	print("* * Experiment #" + args.nb)
 	## Parameters
 	class_ = 284 # 'Siamese cat' class
 	ntries = 1 #Nb of inputs to reconstruct
 	n = 1 # < 10 Nb of features maps to show
-	m = 1
+	m = 3
 	p = 0.30 ## proportion of validation set in training set
 	im = np.zeros((1, sz, sz, 3))
-	todo = {"max_act_filter_btrain": 0,
-		"max_act_class_btrain": 1,
+	todo = {"max_act_filter_btrain": 1,
+		"max_act_class_btrain": 0,
 		"train": 1,
-		"max_act_filter_atrain": 0,
-		"max_act_class_atrain": 1} ## Whether to perform each step
-	for i in todo.keys():
-		todo[i] = bool(todo[i])
+		"max_act_filter_atrain": 1,
+		"max_act_class_atrain": 0} ## Whether to perform each step
+	## Show pictures if set to True
+	show = True
+	todo = list(map(lambda x : bool(todo[x]), todo.keys()))
 	## STEP 2: Before training
 	###### Get the reconstructed inputs yielding highest mean activation
 	if (todo["max_act_filter_btrain"]):
+		## A set of feature channels to visualize
 		rand_range = random.sample(range(m), n)
-		layers = list(filter(lambda x : x[:6] != "interp" and x[:3] != "pos" and x[:5] != "input", map(lambda x : x.name, deconv_model.layers)))
+		layers = list(filter(lambda x : x[:6] != "interp" and x[:3] != "pos" and x[:5] != "input" and x[:10] != "activation", map(lambda x : x.name, deconv_model.layers)))
 		filters = [[grad_ascent(im, model, filter_index, layer_name=layer, batch_size=args.batch, step=args.step) for filter_index in rand_range] for layer in layers]
-		layer_bfc = deconv_model.layers[2].name
-		model_ = d_models[args.tmodel](pretrained=args.trained>0, sz=sz, deconv=True, layer=layer_bfc)
-		deconv_filters = [[deconv_model.predict(model_.predict([i])) for i in f] for f in filters]
+		#layer_bfc = deconv_model.layers[2].name
+		#model_ = d_models[args.tmodel](pretrained=args.trained>0, sz=sz, deconv=True, layer=layer_bfc)
+		#deconv_filters = [[deconv_model.predict(model_.predict([i])) for i in f] for f in filters]
 		hf = ''
 		for f in rand_range:
 			hf += str(f)+','
 		for i in range(len(filters)):
-			save_inputs(deconv_filters[i], layer="deconv_b_training_layer="+layers[i]+"_deconv_filters="+hf, show=False)
-		for i in range(len(filters)):
-			save_inputs(filters[i], layer="deconv_b_training_layer="+layers[i]+"_filters="+hf, show=False)
+			save_inputs(filters[i], layer="deconv_b_training_layer="+layers[i]+"_filters="+hf, show=show)
+		#for i in range(len(filters)):
+		#	save_inputs(deconv_filters[i], layer="deconv_b_training_layer="+layers[i]+"_deconv_filters="+hf, show=False)
 	###### Get the reconstructed inputs yielding highest mean activation in 
 	###### class_ output (wrt ImageNet labels) of softmax layer
 	if (todo["max_act_class_btrain"]):
 		## Full model and DeconvNet
 		deconv_model = d_dmodels[args.tmodel](pretrained=args.trained>0, sz=sz)
-		model = d_models[args.tmodel](pretrained=args.trained>0, sz=sz, deconv=True)
+		model = d_models[args.tmodel](pretrained=args.trained>0, sz=sz, deconv=True, include_softmax = False)
 		imgs = [grad_ascent(im, model, class_, batch_size=args.batch, step=args.step) for i in range(ntries)]
 		## Deconv them
 		## Select layer before the FC part
-		layer_bfc = deconv_model.layers[2].name
-		model = d_models[args.tmodel](pretrained=args.trained>0, sz=sz, deconv=True, layer=layer_bfc)
-		deconv_imgs = [deconv_model.predict(model.predict([i])) for i in imgs]
-		save_inputs(imgs, layer="b_training_class="+str(class_), class_=imagenet1000[class_], show=False)
-		save_inputs(deconv_imgs, layer="b_training_deconv_class="+str(class_), class_=imagenet1000[class_], show=False)
+		#layer_bfc = deconv_model.layers[2].name
+		#model = d_models[args.tmodel](pretrained=args.trained>0, sz=sz, deconv=True, layer=layer_bfc)
+		#deconv_imgs = [deconv_model.predict(model.predict([i])) for i in imgs]
+		save_inputs(imgs, layer="b_training_class="+str(class_), class_=imagenet1000[class_], show=show)
+		#save_inputs(deconv_imgs, layer="b_training_deconv_class="+str(class_), class_=imagenet1000[class_], show=False)
 	## STEP 3: Training with the considered class
 	###### 
 	###### 
@@ -548,12 +572,16 @@ if (args.trun == "final"):
 		Y_test = Y_test[in_train]
 		Y_test_c = Y_test_c[in_train, :]
 		## Remove data augmentation
-		if (args.tmodel != "vgg"):
+		if (args.tmodel != "vgg" and args.tmodel != "resnet50"):
 			model = d_models[args.tmodel](pretrained=args.trained>0, sz=sz, deconv=False)
 		else:
 			## Directly import the model from Keras
-			from keras.applications import VGG16
-			model = VGG16(include_top=True, weights="imagenet", classes=num_classes)
+			if (args.tmodel == "vgg"):
+				from keras.applications.vgg16 import VGG16
+				model = VGG16(include_top=True, weights="imagenet", classes=num_classes)
+			if (args.tmodel == "resnet50"):
+				from keras.applications.resnet50 import ResNet50
+				model = ResNet50(include_top=True, weights="imagenet", classes=num_classes)
 		model.compile(loss=args.loss, optimizer=optimizer, metrics=['accuracy'])
 		hist = model.fit(preprocess_image(X_test), Y_test_c, batch_size=args.batch, verbose=1,
 				epochs=args.epoch,shuffle=True,
@@ -566,26 +594,26 @@ if (args.trun == "final"):
 	## STEP 4
 	if (todo["max_act_filter_atrain"]):
 		model = d_models[args.tmodel](pretrained=args.trained>0, weights_path=wname, deconv=False, sz=sz, layer=args.tlayer)
-		layer_bfc = deconv_model.layers[2].name
-		model_ = d_models[args.tmodel](pretrained=args.trained>0, sz=sz, deconv=True, layer=layer_bfc)
 		###### Get the reconstructed inputs yielding highest mean activation
 		filters = [[grad_ascent(im, model, filter_index, layer_name=layer, batch_size=args.batch, step=args.step) for filter_index in rand_range] for layer in layers]
-		deconv_filters = [[deconv_model.predict(model_.predict([i])) for i in f] for f in filters]
+		#layer_bfc = deconv_model.layers[2].name
+		#model_ = d_models[args.tmodel](pretrained=args.trained>0, sz=sz, deconv=True, layer=layer_bfc)
+		#deconv_filters = [[deconv_model.predict(model_.predict([i])) for i in f] for f in filters]
 		for i in range(len(filters)):
-			save_inputs(filters[i], layer="deconv_a_training_layer="+layers[i]+"_filters="+hf, show=False)
-		for i in range(len(filters)):
-			save_inputs(deconv_filters[i], layer="deconv_a_training_layer="+layers[i]+"_deconv_filters="+hf, show=False)
+			save_inputs(filters[i], layer="deconv_a_training_layer="+layers[i]+"_filters="+hf, show=show)
+		#for i in range(len(filters)):
+		#	save_inputs(deconv_filters[i], layer="deconv_a_training_layer="+layers[i]+"_deconv_filters="+hf, show=False)
 	###### Get the reconstructed inputs yielding highest mean activation in 
 	###### class_ output (wrt ImageNet labels) of softmax layer
 	if (todo["max_act_class_atrain"]):
 		## Full model and DeconvNet
 		deconv_model = d_dmodels[args.tmodel](pretrained=args.trained>0, sz=sz)
-		model = d_models[args.tmodel](pretrained=args.trained>0, sz=sz, weights_path=wname, deconv=True)
+		model = d_models[args.tmodel](pretrained=args.trained>0, sz=sz, weights_path=wname, deconv=True, include_softmax = False)
 		imgs = [grad_ascent(im, model, class_, batch_size=args.batch, step=args.step) for i in range(ntries)]
 		## Deconv them
 		## Select layer before the FC part
-		layer_bfc = deconv_model.layers[2].name
-		model = d_models[args.tmodel](pretrained=args.trained>0, weights_path=wname, sz=sz, deconv=True, layer=layer_bfc)
-		deconv_imgs = [deconv_model.predict(model.predict([i])) for i in imgs]
-		save_inputs(imgs, layer="a_training_class="+str(class_), class_=imagenet1000[class_], show=False)
-		save_inputs(deconv_imgs, layer="a_training_deconv_class="+str(class_), class_=imagenet1000[class_], show=False)
+		#layer_bfc = deconv_model.layers[2].name
+		#model = d_models[args.tmodel](pretrained=args.trained>0, weights_path=wname, sz=sz, deconv=True, layer=layer_bfc)
+		#deconv_imgs = [deconv_model.predict(model.predict([i])) for i in imgs]
+		save_inputs(imgs, layer="a_training_class="+str(class_), class_=imagenet1000[class_], show=show)
+		#save_inputs(deconv_imgs, layer="a_training_deconv_class="+str(class_), class_=imagenet1000[class_], show=False)

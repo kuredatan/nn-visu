@@ -6,10 +6,18 @@ from sklearn.decomposition import PCA
 from matplotlib import pyplot as plt
 from matplotlib import colors as mcolors
 
-## PCA on contributions of each training image to reconstructed input
+## Plot contributions of each training image to reconstructed input
+
+## Plot only the k highest contributions
+k=11
 
 ## Load vectors associated with each reconstructed input
-contributions_ = glob.glob("./contributions/harris_siamese_*_contributions.dat")
+contributions_ = glob.glob("../slides+report/contributions/harris_siamese_*_contributions.dat")
+## Plot the k highest contributions
+if (k > 0):
+	highest = contributions.argsort()[-k:]
+	print(highest, "Images which have the " + str(k) + " highest contributions")
+	contributions_ = contributions_[highest]
 order = [int(c.split("_")[2]) for c in contributions_]
 ra = sorted(range(len(contributions_)), key=lambda x : order[x])
 contributions_ = [contributions_[i] for i in ra]

@@ -23,6 +23,19 @@ msg = "* Loaded weights! (DeconvNet)"
 # The Deconv2D layers should have the same name as the associated Conv2D layers.
 # The shapes can be extracted from [model to deconvolve].summary().
 
+## /!\ No DeconvNet implemented for ResNet_50! 
+
+def ResNet_50(pretrained=True, weights_path=None, noutputs=num_classes, layer="", sz=sz):
+	if (pretrained and not weights_path):
+		weights_path = './data/weights/resnet50_weights.h5'
+	from keras.applications.resnet50 import ResNet50
+	model = ResNet50(include_top=True, weights=None, classes=num_classes)
+	if weights_path:
+		print(msg)
+		model.load_weights(weights_path, by_name = True)
+
+	return model
+
 ## CREDIT: https://gist.github.com/baraldilorenzo/07d7802847aaad0a35d3
 def VGG_16(pretrained=True, weights_path=None, noutputs=num_classes, layer="", sz=sz):
 	if (pretrained and not weights_path):

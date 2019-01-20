@@ -42,6 +42,7 @@ def load_input(im_name):
 	img.load()
 	im = np.asarray(img, dtype=np.float32)
 	im = imresize(im, (sz, sz, 3))
+	im = plm.rgb2grey(im)
 	return im
 
 def plot_bovw(hst, title="mystery image"):
@@ -87,7 +88,7 @@ def plot_image_compare(query, im):
 	#plt.show()
 
 def compute_SIFT(im):
-	sift = cyvlfeat.sift.sift(plm.rgb2grey(im),peak_thresh=thres,compute_descriptor=True)
+	sift = cyvlfeat.sift.sift(im,peak_thresh=thres,compute_descriptor=True)
 	return sift
 
 def get_descrs(im):
@@ -365,6 +366,12 @@ def repeatability_harris(fmap, images_list, name="cats", fmap_name="1", list_img
 	else:
 		corners_list = [np.loadtxt(folder + name + "_corners"+str(i)+".dat", delimiter=',') for i in range(n)]
 	print("* Loaded corners")
+	plt.figure()
+	plt.imshow(fmap)
+	plt.figure()
+	plt.imshow(images_list[0])
+	plt.show()
+	raise ValueError
 	## Correspondance of corners
 	corners_fmap = plm.extract_corners(fmap)
 	## Using RANSAC
@@ -374,8 +381,7 @@ def repeatability_harris(fmap, images_list, name="cats", fmap_name="1", list_img
 	matches = [m[1:] for m in matches]
 	m, contributions = results_correspondences(inliers, list_img, fname, matches)
 	if (m):
-		pass
-		#plm.plot_correspondences(fmap, images_list[m], matches[m][0], matches[m][1], inliers[m])
+		plm.plot_correspondences(fmap, images_list[m], matches[m][0], matches[m][1], inliers[m])
 	return contributions
 
 ###################################################################

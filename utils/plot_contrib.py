@@ -40,7 +40,8 @@ if (args.tmethod != "bow"):
 	plt.xlabel("Number of corresponding training image")
 	plt.xticks(range(len(means)), highest)
 	plt.ylabel("Contributions (average % of matches\non reconstructed input + std)")
-	plt.show()
+	plt.savefig("./slides+report/contrib_"+args.tmodel+"_"+args.tdata+".png", bbox_inches="tight")
+	#plt.show()
 else:
 	## Should be called from the root folder
 	scores_ = glob.glob("./slides+report/figures_/bow_analysis/bow_"+args.tdata+"_"+args.tmodel+"_*_scores.dat")

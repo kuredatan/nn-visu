@@ -25,13 +25,6 @@ mpl.rcParams['figure.dpi'] = 120
 # ignore warnings
 warnings.filterwarnings('ignore')
 
-ff = "/home/reda/Projets20182019/Vision/Projet/interpretation/DeconvNet/"
-folder = ff+"data/bow_sift_comp/"
-folders = [folder+'bow/', folder+'corresp/', folder+'harris/']
-for f in folders:
-	if not os.path.exists(f):
-		os.mkdir(f)
-
 ###########
 ## TOOLS ##
 ###########

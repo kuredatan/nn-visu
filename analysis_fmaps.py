@@ -33,10 +33,10 @@ args = parser.parse_args()
 if (not args.tname and args.tmodel and args.texperiment):
 	name = "exp/exp_"+args.tmodel+"/"+args.texperiment+"/"
 	if (args.texperiment=="outputs"):
-		name += "convfeature_map_layer_"+args.tlayer+".png"
+		name += args.tmodel+"feature_map_layer_"+args.tlayer+".png"
 	if (args.texperiment=="reconst"):
 		class_ = str(284) ## Same as in process_model.py in the final pipeline
-		name += "conv_feature_map_layer"+args.ab+"_training_deconv_class="+class_+"_"+args.nb+".png"
+		name += args.tmodel+"_feature_map_layer"+args.ab+"_training_deconv_class="+class_+"_"+args.nb+".png"
 else:
 	assert args.tname != None, "Please specify the name of the input image"
 	name = args.tname
@@ -54,26 +54,20 @@ assert len(list_img) > 0, "Put some images in the ./data/"+data+" folder"
 images_list = [load_input(im_name) for im_name in list_img]
 fmap = load_input("./Figures/"+name)
 
-ntry = 1
+if (args.nb):
+	caract = args.nb
+else:
+	caract = args.tlayer
+caract += "_"+args.ab
 
 if (args.tmethod == "bow"):
-	bow_comparison(fmap, images_list, name=data, num_words=10, fmap_name=str(ntry), list_img=list_img)
-	sb.call("mv ./bow_input_closest.png ./slides+report/figures_/bow_analysis/", shell=True)
-	sb.call("mv ./image_input_closest.png ./slides+report/figures_/bow_analysis/", shell=True)
-	sb.call("mv ./data/bow_sift_comp/bow/bow_"+data+"_1_scores.dat ./slides+report/figures_/bow_analysis/", shell=True)
+	bow_comparison(fmap, images_list, name=data, num_words=10, fmap_name=caract, list_img=list_img)
+	sb.call("mv ./bow_input_closest_"+caract+".png ./slides+report/figures_/bow_analysis/", shell=True)
+	sb.call("mv ./image_input_closest_"+caract+".png ./slides+report/figures_/bow_analysis/", shell=True)
+	sb.call("mv ./data/bow_sift_comp/bow/bow_"+data+"_"+caract+"_scores.dat ./slides+report/figures_/bow_analysis/", shell=True)
 if (args.tmethod == "sift"):
-	contributions = corresp_comparison(fmap, images_list, name=data, fmap_name=str(ntry), list_img=list_img)
-	if (args.nb):
-		sb.call("mv ./data/bow_sift_comp/corresp/corresp_"+data+"_"+args.nb+"_contributions.dat ./slides+report/", shell=True)
-	else:
-		sb.call("mv ./data/bow_sift_comp/corresp/corresp_"+data+"_1_contributions.dat ./slides+report/", shell=True)
-	## Plots
-	sb.call("python ./utils/plot_contrib.py", shell=True)
+	contributions = corresp_comparison(fmap, images_list, name=data, fmap_name=caract, list_img=list_img)
+	sb.call("mv ./data/bow_sift_comp/corresp/corresp_"+data+"_"+caract+"_contributions.dat ./slides+report/", shell=True)
 if (args.tmethod == "harris"):
-	contributions = repeatability_harris(fmap, images_list, name=data, fmap_name=str(ntry), list_img=list_img)
-	if (args.nb):
-		sb.call("mv ./data/bow_sift_comp/harris/harris_"+data+"_1_contributions.dat ./slides+report/contributions/harris_"+data+"_"+args.nb+"_contributions.dat", shell=True)
-	else:
-		sb.call("mv ./data/bow_sift_comp/harris/harris_"+data+"_1_contributions.dat ./slides+report/contributions/harris_"+data+"_"+args.tlayer+"_contributions.dat", shell=True)
-	## Plots
-	sb.call("python ./utils/plot_contrib.py", shell=True)
+	contributions = repeatability_harris(fmap, images_list, name=data, fmap_name=caract, list_img=list_img)
+	sb.call("mv ./data/bow_sift_comp/harris/harris_"+data+"_"+caract+"_contributions.dat ./slides+report/contributions/", shell=True)

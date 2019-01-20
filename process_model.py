@@ -517,14 +517,13 @@ if (args.trun == "final"):
 	m = 3
 	p = 0.30 ## proportion of validation set in training set
 	im = np.zeros((1, sz, sz, 3))
-	todo = {"max_act_filter_btrain": 1,
-		"max_act_class_btrain": 0,
+	todo = {"max_act_filter_btrain": False,
+		"max_act_class_btrain": True,
 		"train": 1,
-		"max_act_filter_atrain": 1,
-		"max_act_class_atrain": 0} ## Whether to perform each step
+		"max_act_filter_atrain": False,
+		"max_act_class_atrain": True} ## Whether to perform each step
 	## Show pictures if set to True
-	show = True
-	todo = list(map(lambda x : bool(todo[x]), todo.keys()))
+	show = False
 	## STEP 2: Before training
 	###### Get the reconstructed inputs yielding highest mean activation
 	if (todo["max_act_filter_btrain"]):

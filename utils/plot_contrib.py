@@ -1,35 +1,59 @@
 #coding: utf-8
 
+import sys
+import argparse
 import glob
 import numpy as np
 from sklearn.decomposition import PCA
 from matplotlib import pyplot as plt
 from matplotlib import colors as mcolors
 
-## Plot contributions of each training image to reconstructed input
+parser = argparse.ArgumentParser(description='Plot/Results of deconvoluted images')
+parser.add_argument('--tmodel', type=str, default='bow', metavar='O',
+                    help='Model: [\'conv\', \'vonc\', \'vgg\'].')
+parser.add_argument('--tmethod', type=str, default='bow', metavar='M',
+                    help='Method: [\'bow\', \'sift\', \'harris\'].')
+parser.add_argument('--tdata', type=str, default='siamese', metavar='D',
+                    help='Method: [\'siamese\', \'cats\'].')
+args = parser.parse_args()
 
-## Plot only the k highest contributions
-k=11
+if (args.tmethod != "bow"):
+	k = 11
+	## Plot contributions of each training image to reconstructed input
 
-## Load vectors associated with each reconstructed input
-contributions_ = glob.glob("../slides+report/contributions/harris_siamese_*_contributions.dat")
-## Plot the k highest contributions
-if (k > 0):
-	highest = contributions.argsort()[-k:]
+	## Load vectors associated with each reconstructed input
+	## Should be called from the root folder
+	contributions_ = glob.glob("./slides+report/contributions/harris_"+args.tdata+"_*_contributions.dat")
+	order = [int(c.split("_")[2]) for c in contributions_]
+	ra = sorted(range(len(contributions_)), key=lambda x : order[x])
+	contributions_ = [contributions_[i] for i in ra]
+	order = [order[i] for i in ra]
+	contributions = np.concatenate([np.matrix(np.loadtxt(c)) for c in contributions_], axis=1)
+	#print(contributions)
+	means = np.array(list(map(lambda x : round(np.mean(x), 2), [contributions[:,i] for i in range(len(ra))])))
+	stds = np.array(list(map(lambda x : round(np.std(x), 2), [contributions[:,i] for i in range(len(ra))])))
+	## Plot the k highest contributions
+	highest = means.argsort()[-k:]
 	print(highest, "Images which have the " + str(k) + " highest contributions")
-	contributions_ = contributions_[highest]
-order = [int(c.split("_")[2]) for c in contributions_]
-ra = sorted(range(len(contributions_)), key=lambda x : order[x])
-contributions_ = [contributions_[i] for i in ra]
-order = [order[i] for i in ra]
-contributions = np.matrix([np.loadtxt(c).tolist() for c in contributions_])
-print(np.shape(contributions))
-#print(contributions)
-means = list(map(lambda x : round(np.mean(x), 2), [contributions[:,i] for i in range(len(ra))]))
-stds = list(map(lambda x : round(np.std(x), 2), [contributions[:,i] for i in range(len(ra))]))
+	means = means[highest].tolist()
+	stds = stds[highest].tolist()
 
-plt.errorbar(range(len(means)), means, yerr=stds, fmt='o')
-plt.title("Contributions (in terms of matches) of each training\nimage to the reconstructed input")
-plt.xlabel("Label of training image")
-plt.ylabel("Contributions (average % of matches on reconstructed input + std)")
-plt.show()
+	plt.errorbar(range(len(means)), means, yerr=stds, fmt='o')
+	plt.title("Contributions (%matches) of each training\nimage to the reconstructed input ranked in increasing value order")
+	plt.xlabel("Number of corresponding training image")
+	plt.xticks(range(len(means)), highest)
+	plt.ylabel("Contributions (average % of matches\non reconstructed input + std)")
+	plt.show()
+else:
+	## Should be called from the root folder
+	scores_ = glob.glob("./slides+report/figures_/bow_analysis/bow_"+args.tdata+"_*_scores.dat")
+	before_train = list(filter(lambda x : "b" in x.split("_"), scores_))
+	after_train = list(filter(lambda x : "a" in x.split("_"), scores_))
+	bscores = np.array([np.max(np.loadtxt(s)).tolist() for s in before_train])
+	ascores = np.array([np.max(np.loadtxt(s)).tolist() for s in after_train])
+	a, b = list(map(np.median, [bscores, ascores]))
+	c, d = list(map(np.mean, [bscores, ascores]))
+	scoresm = np.matrix([[a, c], [b, d]])
+	print("Median max. score | Mean max. score"+"// before training | after training")
+	print(scoresm)
+	np.savetxt(X=scoresm, fname="./slides+report/scores_med_mean_ab_train_"+args.tmodel+"_"+args.tdata+".csv", delimiter=",")

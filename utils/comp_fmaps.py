@@ -37,23 +37,22 @@ for f in folders:
 ###########
 
 def load_input(im_name):
-	print(im_name)
+	#print(im_name)
 	img = Image.open(im_name)
 	img.load()
 	im = np.asarray(img, dtype=np.float32)
 	im = imresize(im, (sz, sz, 3))
-	im = plm.rgb2grey(im)
 	return im
 
-def plot_bovw(hst, title="mystery image"):
+def plot_bovw(hst, fmap_name, title="mystery image"):
 	plt.hist(np.histogram(hst))
 	plt.title("Bag-of-Visual-Words with " + title)
 	plt.xlabel("Word ID")
 	plt.ylabel("\'Count\'")
-	plt.savefig("bow_"+title+".png", bbox_inches="tight")
+	plt.savefig("bow_"+title+"_"+fmap_name+".png", bbox_inches="tight")
 	#plt.show()
 
-def plot_bovw_compare(query_hist, hst, score):
+def plot_bovw_compare(query_hist, hst, score, fmap_name):
 	plt.figure(figsize=(10, 4.19))
 	plt.subplot('121')
 	plt.hist(np.histogram(query_hist))
@@ -65,10 +64,10 @@ def plot_bovw_compare(query_hist, hst, score):
 	plt.title("Bag-of-Visual-Words with closest image (score = "+ str(round(score, 2))+")")
 	plt.xlabel("Word ID")
 	plt.ylabel("\'Count\'")
-	plt.savefig("bow_input_closest.png", bbox_inches="tight")
+	plt.savefig("bow_input_closest_"+fmap_name+".png", bbox_inches="tight")
 	#plt.show()
 
-def plot_image_compare(query, im):
+def plot_image_compare(query, im, fmap_name):
 	if (np.max(query) > 1):
 		query = query/255.
 	if (np.max(im) > 1):
@@ -84,11 +83,11 @@ def plot_image_compare(query, im):
 	plt.title("Closest image")
 	plt.xlabel("")
 	plt.ylabel("")
-	plt.savefig("image_input_closest.png", bbox_inches="tight")
+	plt.savefig("image_input_closest_"+fmap_name+".png", bbox_inches="tight")
 	#plt.show()
 
 def compute_SIFT(im):
-	sift = cyvlfeat.sift.sift(im,peak_thresh=thres,compute_descriptor=True)
+	sift = cyvlfeat.sift.sift(plm.rgb2grey(im),peak_thresh=thres,compute_descriptor=True)
 	return sift
 
 def get_descrs(im):
@@ -169,7 +168,7 @@ def compute_tdf_idf(histograms, num_words):
 			tdf = histograms[j,i]/float(np.sum(histograms[j, :]))
 			from math import log
 			idf = log(n/(float(np.sum(histograms[:,i] > 0)+1)))
-			tdf_idf[i, j] = tdf*idf
+			tdf_idf[i, j] = max(tdf*idf, 0.0001)
 	return tdf_idf
 
 # fmap: deconvoluted feature map
@@ -222,7 +221,7 @@ def bow_comparison(fmap, images_list, name="cats", num_words=10, fmap_name="1", 
 	query_hist = g_h(descrs)
 	tdf_idf = compute_tdf_idf(np.concatenate((query_hist.T, histograms)), num_words)[:,0]
 	query_hist = np.matrix(preprocess_hist(query_hist, tdf_idf))
-	#plot_bovw(query_hist)
+	#plot_bovw(query_hist, fmap_name)
 	scores = np.zeros((1, len(descrs_list)))
 	scores[0,:] = [compute_score(query_hist, hist_i, num_words) for hist_i in histograms]
 	header = ""
@@ -232,8 +231,8 @@ def bow_comparison(fmap, images_list, name="cats", num_words=10, fmap_name="1", 
 	np.savetxt(folder + name + "_" + fmap_name + "_scores.dat", scores, delimiter='\n', header=header)
 	m = np.argmax(scores[0, :])
 	print("* Maximum score is " + str(round(scores[0, m], 3)))
-	plot_bovw_compare(query_hist, histograms[m], scores[0, m])
-	plot_image_compare(fmap, images_list[m]/255.)
+	plot_bovw_compare(query_hist, histograms[m], scores[0, m], fmap_name)
+	plot_image_compare(fmap, images_list[m]/255., fmap_name)
 
 ###########################
 ## Correspondence points ##
@@ -326,10 +325,10 @@ def corresp_comparison(fmap, images_list, name="cats", fmap_name="1", list_img=[
 		plt.imshow(im1)
 		plt.subplot("122")
 		plt.imshow(im2)
-		plt.show()
-		plt.figure()
-		plot_matches(ax, im2, im1, frames_fmap[:, :2], frames[m][:, :2], inliers[m])
-		plt.show()
+		#plt.show()
+		#plt.figure()
+		#plot_matches(ax, im2, im1, frames_fmap[:, :2], frames[m][:, :2], inliers[m])
+		#plt.show()
 	return contributions
 
 ###########################################
@@ -348,7 +347,7 @@ def plot_harris_points(image, filtered_coords):
 	plt.plot([p[1] for p in filtered_coords], [p[0] for p in filtered_coords],'b.')
 	plt.axis('off')
 	plt.title("Harris corner points")
-	#plt.show()
+	##plt.show()
 
 # fmap: deconvoluted feature map
 # images: list of image files to which the feature map should be compared
@@ -366,12 +365,6 @@ def repeatability_harris(fmap, images_list, name="cats", fmap_name="1", list_img
 	else:
 		corners_list = [np.loadtxt(folder + name + "_corners"+str(i)+".dat", delimiter=',') for i in range(n)]
 	print("* Loaded corners")
-	plt.figure()
-	plt.imshow(fmap)
-	plt.figure()
-	plt.imshow(images_list[0])
-	plt.show()
-	raise ValueError
 	## Correspondance of corners
 	corners_fmap = plm.extract_corners(fmap)
 	## Using RANSAC
@@ -381,7 +374,8 @@ def repeatability_harris(fmap, images_list, name="cats", fmap_name="1", list_img
 	matches = [m[1:] for m in matches]
 	m, contributions = results_correspondences(inliers, list_img, fname, matches)
 	if (m):
-		plm.plot_correspondences(fmap, images_list[m], matches[m][0], matches[m][1], inliers[m])
+		pass
+		#plm.plot_correspondences(fmap, images_list[m], matches[m][0], matches[m][1], inliers[m])
 	return contributions
 
 ###################################################################

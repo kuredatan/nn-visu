@@ -18,7 +18,7 @@ def plot_grad_ascent(img):
 	plt.imshow(img)
 	plt.title("Reconstructed input with Gradient Ascent")
 	plt.axis('off')
-	plt.savefig("../Figures/grad_ascent_plot.png", bbox_inches="tight")
+	plt.savefig("./Figures/grad_ascent_plot.png", bbox_inches="tight")
 	#plt.show()
 
 # Start from noisy random image and get ONE image which maximizes the average activation
@@ -51,5 +51,5 @@ def grad_ascent(sz, model, index, layer_name="", batch_size=32, niter=20, step=1
 		loss_value, grads_value = iterate([img])
 		img += grads_value * step
 	print("* Final optimized value: " + str(loss_value))
-	plot_grad_ascent(img)
+	#plot_grad_ascent(img)
 	return img

@@ -79,7 +79,7 @@ def plot_correspondences(im1, im2, frames1, frames2, matches):
 		j=matches[i,1]
 		k=matches[i,0]
 		# plot dots at feature positions
-		plt.gca().scatter([frames1[k,0],im1.shape[1]+frames2[j,0]], [frames1[k,1],frames2[j,1]], s=5, c=[0,1,0])
+		plt.gca().scatter([frames1[k,0],im1.shape[1]+frames2[j,0]], [frames1[k,1],frames2[j,1]], s=5, c=np.array([[0,1,0]]))
 		# plot lines
 		plt.plot([frames1[k,0],im1.shape[1]+frames2[j,0]],[frames1[k,1],frames2[j,1]],linewidth=0.5)
 	plt.axis('off')

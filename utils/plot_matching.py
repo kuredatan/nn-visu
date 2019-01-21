@@ -84,6 +84,5 @@ def plot_correspondences(im1, im2, frames1, frames2, matches, fmap_name):
 		plt.plot([frames1[k,0],im1.shape[1]+frames2[j,0]],[frames1[k,1],frames2[j,1]],linewidth=0.5)
 	plt.axis('off')
 	plt.title('RANSAC filtered correspondances with closest image')
-	#plt.savefig(fmap_name+"_ransac.png", bbox_inches="tight")
 	plt.savefig("ransac.png", bbox_inches="tight")
-	plt.show()
+	#plt.show()
